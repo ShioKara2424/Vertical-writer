@@ -26,7 +26,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
   body {
-    background: #2c2416;
+    background: #c8b89a;
     font-family: 'Noto Serif JP', serif;
     height: 100dvh;
     display: flex; flex-direction: column;
@@ -63,7 +63,7 @@
   .tb-btn svg { width: 18px; height: 18px; }
 
   /* PAPER AREA */
-  #paper-wrap { flex: 1; overflow: hidden; background: #2c2416; position: relative; }
+  #paper-wrap { flex: 1; overflow: hidden; background: #c8b89a; position: relative; }
 
   #scroll-container {
     width: 100%; height: 100%;
@@ -75,7 +75,7 @@
 
   #paper {
     background: var(--washi);
-    box-shadow: -4px 0 20px rgba(0,0,0,0.3), 4px 0 20px rgba(0,0,0,0.3);
+    box-shadow: -2px 0 4px rgba(0,0,0,0.1), 2px 0 4px rgba(0,0,0,0.1);
     position: relative; flex-shrink: 0;
     border-radius: 2px; overflow: hidden;
     margin-top: auto; margin-bottom: auto;
@@ -512,8 +512,8 @@ function renderPageLines({ colW, paperH, paperW }) {
 
     // ページ番号（右から数えて p+1 ページ目）
     ctx.save();
-    ctx.fillStyle = 'rgba(160,120,60,0.4)';
-    ctx.font = '10px sans-serif';
+    ctx.fillStyle = 'rgba(120,80,30,0.75)';
+    ctx.font = 'bold 13px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(String(p + 1), x - pageTextW / 2, paperH - 5);
     ctx.restore();
