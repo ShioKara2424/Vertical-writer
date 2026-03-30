@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="縦書き">
+<meta name="theme-color" content="#2c2416">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>縦書きエディター</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;700&family=Noto+Sans+JP:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --washi: #f5f0e8;
+    --ink: #1a1208;
+    --ink-light: #3d3020;
+    --vermillion: #c0392b;
+    --gold: #c9a84c;
+    --toolbar-h: 56px;
+    --status-h: 36px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: #2c2416;
+    font-family: 'Noto Serif JP', serif;
+    height: 100dvh;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* TOOLBAR */
+  #toolbar {
+    height: var(--toolbar-h);
+    background: linear-gradient(180deg, #1a1208 0%, #2c2416 100%);
+    border-bottom: 1px solid #c9a84c44;
+    display: flex; align-items: center;
+    padding: 0 8px; gap: 2px;
+    flex-shrink: 0; z-index: 10;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  }
+  #toolbar-title {
+    flex: 1; color: var(--gold);
+    font-size: 14px; font-weight: 500;
+    letter-spacing: 0.12em; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding: 0 4px;
+  }
+  .tb-btn {
+    width: 40px; height: 40px; border-radius: 8px; border: none;
+    background: transparent; color: #c9a84c99;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s; flex-shrink: 0;
+    font-size: 16px;
+  }
+  .tb-btn:active { background: #c9a84c22; color: var(--gold); }
+  .tb-btn.active { color: var(--vermillion) !important; }
+  .tb-btn.disabled { color: #c9a84c33 !important; pointer-events: none; }
+  .tb-btn svg { width: 18px; height: 18px; }
+
+  /* PAPER AREA */
+  #paper-wrap { flex: 1; overflow: hidden; background: #2c2416; position: relative; }
+
+  #scroll-container {
+    width: 100%; height: 100%;
+    overflow-x: auto; overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    display: flex; align-items: flex-start;
+    padding: 16px 20px;
+  }
+
+  #paper {
+    background: var(--washi);
+    box-shadow: -4px 0 20px rgba(0,0,0,0.3), 4px 0 20px rgba(0,0,0,0.3);
+    position: relative; flex-shrink: 0;
+    border-radius: 2px; overflow: hidden;
+    margin-top: auto; margin-bottom: auto;
+  }
+
+  #grid-canvas {
+    position: absolute; top: 0; left: 0;
+    pointer-events: none; z-index: 1; display: block;
+  }
+
+  #editor {
+    position: absolute; top: 0; left: 0;
+    writing-mode: vertical-rl; text-orientation: mixed;
+    outline: none;
+    font-family: 'Noto Serif JP', serif;
+    color: var(--ink);
+    word-break: break-all; white-space: pre-wrap; overflow-wrap: break-word;
+    z-index: 3;
+    caret-color: var(--vermillion);
+    -webkit-user-select: text; user-select: text;
+    letter-spacing: 0;
+  }
+  #editor:empty::before {
+    content: attr(data-placeholder);
+    color: rgba(100,80,50,0.3); pointer-events: none; font-style: italic;
+  }
+
+  /* STATUS BAR */
+  #statusbar {
+    height: var(--status-h);
+    background: linear-gradient(0deg, #1a1208 0%, #2c2416 100%);
+    border-top: 1px solid #c9a84c33;
+    display: flex; align-items: center;
+    padding: 0 12px; gap: 8px; flex-shrink: 0;
+  }
+  .status-item {
+    font-family: 'Noto Sans JP', sans-serif; font-size: 11px;
+    color: #c9a84c88; display: flex; align-items: center; gap: 3px;
+    letter-spacing: 0.04em; white-space: nowrap;
+  }
+  .status-item span { color: #c9a84ccc; }
+  .status-sep { color: #c9a84c33; font-size: 11px; }
+
+  /* SETTINGS PANEL */
+  #settings-panel {
+    position: absolute; bottom: var(--status-h); left: 0; right: 0;
+    background: #1a1208f2; border-top: 1px solid #c9a84c44;
+    padding: 12px 16px; display: none; z-index: 20;
+    backdrop-filter: blur(10px);
+  }
+  #settings-panel.open { display: block; }
+  .setting-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .setting-row:last-child { margin-bottom: 0; }
+  .setting-label { color: var(--gold); font-size: 12px; font-family: 'Noto Sans JP', sans-serif; letter-spacing: 0.06em; width: 96px; flex-shrink: 0; }
+  .setting-controls { display: flex; align-items: center; gap: 6px; flex: 1; }
+  .num-btn {
+    width: 30px; height: 30px; border-radius: 6px;
+    border: 1px solid #c9a84c44; background: #2c2416; color: var(--gold);
+    font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-family: sans-serif;
+  }
+  .num-btn:active { background: #c9a84c22; }
+  .num-input {
+    width: 52px; text-align: center; background: #2c2416;
+    border: 1px solid #c9a84c44; border-radius: 6px;
+    color: var(--gold); font-size: 14px; font-family: 'Noto Sans JP', sans-serif;
+    padding: 4px; outline: none;
+  }
+  .num-input:focus { border-color: var(--vermillion); }
+  .setting-unit { color: #c9a84c88; font-size: 11px; font-family: 'Noto Sans JP', sans-serif; }
+  .toggle {
+    width: 46px; height: 26px; background: #3d3020; border-radius: 13px;
+    position: relative; cursor: pointer; border: 1px solid #c9a84c33;
+    transition: background 0.2s; flex-shrink: 0;
+  }
+  .toggle.on { background: #7a2d23; border-color: #c0392b88; }
+  .toggle::after {
+    content: ''; position: absolute; width: 20px; height: 20px;
+    background: #c9a84c66; border-radius: 50%; top: 2px; left: 2px;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .toggle.on::after { transform: translateX(20px); background: var(--vermillion); }
+  .toggle-text { font-size: 12px; font-family: 'Noto Sans JP', sans-serif; color: #c9a84c66; }
+  .toggle.on ~ .toggle-text { color: #c0392b; }
+  .chars-per-page { margin-left: auto; font-size: 11px; font-family: 'Noto Sans JP', sans-serif; color: #c9a84c55; }
+
+  /* MODAL */
+  #modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 50; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+  }
+  #modal-overlay.open { display: flex; }
+  #modal {
+    background: var(--washi); border-radius: 12px; padding: 24px;
+    width: 85%; max-width: 340px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  #modal h2 { font-size: 16px; color: var(--ink); margin-bottom: 16px; text-align: center; letter-spacing: 0.1em; }
+  .modal-input {
+    width: 100%; border: 1px solid rgba(100,80,50,0.3); border-radius: 8px;
+    padding: 10px 12px; font-family: 'Noto Serif JP', serif; font-size: 14px;
+    background: #fff8f0; color: var(--ink); margin-bottom: 12px; outline: none;
+  }
+  .modal-input:focus { border-color: var(--vermillion); }
+  .modal-btns { display: flex; gap: 8px; }
+  .modal-btn {
+    flex: 1; padding: 10px; border-radius: 8px; border: none;
+    font-family: 'Noto Serif JP', serif; font-size: 14px; cursor: pointer; letter-spacing: 0.05em;
+  }
+  .modal-btn.primary { background: var(--vermillion); color: #fff; }
+  .modal-btn.secondary { background: rgba(100,80,50,0.1); color: var(--ink-light); }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: calc(var(--status-h) + 12px); left: 50%;
+    transform: translateX(-50%) translateY(14px);
+    background: #1a1208ee; color: var(--gold); padding: 7px 18px; border-radius: 20px;
+    font-size: 12px; font-family: 'Noto Sans JP', sans-serif;
+    opacity: 0; transition: opacity 0.25s, transform 0.25s;
+    pointer-events: none; z-index: 100; white-space: nowrap;
+    border: 1px solid #c9a84c44; letter-spacing: 0.05em;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  #scroll-container::-webkit-scrollbar { height: 3px; }
+  #scroll-container::-webkit-scrollbar-thumb { background: #c9a84c55; border-radius: 2px; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  #paper { animation: fadeIn 0.35s ease; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <!-- 新規 -->
+  <button class="tb-btn" id="btn-new" onclick="newDoc()" title="新規">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14,2 14,8 20,8"/>
+      <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+    </svg>
+  </button>
+  <!-- 開く -->
+  <button class="tb-btn" id="btn-open" onclick="openDoc()" title="開く">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+    </svg>
+  </button>
+  <!-- Undo -->
+  <button class="tb-btn" id="btn-undo" onclick="doUndo()" title="元に戻す (Ctrl+Z)">↩</button>
+  <!-- Redo -->
+  <button class="tb-btn" id="btn-redo" onclick="doRedo()" title="やり直し (Ctrl+Y)">↪</button>
+
+  <div id="toolbar-title">縦書きエディター</div>
+
+  <!-- 設定 -->
+  <button class="tb-btn" id="btn-settings" onclick="toggleSettings()" title="設定">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+  <!-- 別名保存 -->
+  <button class="tb-btn" id="btn-saveas" onclick="saveAs()" title="別名保存">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+      <polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/>
+      <line x1="19" y1="8" x2="22" y2="5"/><line x1="22" y1="5" x2="19" y2="2"/>
+    </svg>
+  </button>
+  <!-- 上書き保存 -->
+  <button class="tb-btn" id="btn-save" onclick="saveOverwrite()" title="上書き保存 (Ctrl+S)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+      <polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/>
+    </svg>
+  </button>
+</div>
+
+<div id="paper-wrap">
+  <div id="scroll-container">
+    <div id="paper">
+      <canvas id="grid-canvas"></canvas>
+      <div id="editor"
+           contenteditable="true"
+           spellcheck="false"
+           data-placeholder="ここに文章を入力してください。"
+           oninput="onInput()"
+           onkeydown="onKeyDown(event)"></div>
+    </div>
+  </div>
+</div>
+
+<div id="settings-panel">
+  <div class="setting-row">
+    <div class="setting-label">文字サイズ</div>
+    <div class="setting-controls">
+      <button class="num-btn" onclick="adjustVal('fontSize',-1)">−</button>
+      <input class="num-input" id="in-fontsize" type="number" min="10" max="36" value="18"
+             onchange="setVal('fontSize',this.value,10,36)">
+      <span class="setting-unit">px</span>
+      <button class="num-btn" onclick="adjustVal('fontSize',1)">＋</button>
+    </div>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">縦（行数）</div>
+    <div class="setting-controls">
+      <button class="num-btn" onclick="adjustVal('rows',-1)">−</button>
+      <input class="num-input" id="in-rows" type="number" min="5" max="60" value="20"
+             onchange="setVal('rows',this.value,5,60)">
+      <span class="setting-unit">行 / ページ</span>
+      <button class="num-btn" onclick="adjustVal('rows',1)">＋</button>
+    </div>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">横（列数）</div>
+    <div class="setting-controls">
+      <button class="num-btn" onclick="adjustVal('cols',-1)">−</button>
+      <input class="num-input" id="in-cols" type="number" min="3" max="40" value="10"
+             onchange="setVal('cols',this.value,3,40)">
+      <span class="setting-unit">列 / ページ</span>
+      <button class="num-btn" onclick="adjustVal('cols',1)">＋</button>
+    </div>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">1頁の文字数</div>
+    <div class="setting-controls">
+      <span class="chars-per-page" id="chars-per-page" style="color:#c9a84c99;font-size:13px;">200字</span>
+    </div>
+  </div>
+</div>
+
+<div id="statusbar">
+  <div class="status-item">文字数 <span id="char-count">0</span></div>
+  <div class="status-sep">｜</div>
+  <div class="status-item">ページ <span id="page-count">1</span></div>
+  <div class="status-sep">｜</div>
+  <div class="status-item">行×列 <span id="grid-info">20×10</span></div>
+  <div class="status-sep">｜</div>
+  <div class="status-item" id="save-status">未保存</div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal">
+    <h2 id="modal-title">ファイル名</h2>
+    <input type="text" class="modal-input" id="modal-input" placeholder="タイトルを入力">
+    <div class="modal-btns">
+      <button class="modal-btn secondary" onclick="closeModal()">キャンセル</button>
+      <button class="modal-btn primary" onclick="confirmModal()">決定</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+const editor   = document.getElementById('editor');
+const paper    = document.getElementById('paper');
+const canvas   = document.getElementById('grid-canvas');
+const ctx      = canvas.getContext('2d');
+const scroller = document.getElementById('scroll-container');
+
+// File System Access API 対応チェック
+const hasFS = !!window.showSaveFilePicker;
+
+// ===== STATE =====
+const S = {
+  fontSize: 18,
+  rows: 20,
+  cols: 10,
+  currentFile: '無題',
+  dirty: false,       // 未保存の変更があるか
+  saveOk: null,       // 'ok' | null （保存成功表示用）
+};
+
+// File System Access API のファイルハンドル（上書き保存用）
+let fileHandle = null;
+
+let modalCb = null, autoSaveT = null;
+
+// ===== UNDO / REDO =====
+// Save-the-Catと同じ方式: JSON.stringifyでスナップショットを配列に積む
+const UNDO_MAX = 80;
+let undoStack = [], redoStack = [];
+
+function snapshot() {
+  return JSON.stringify({ content: editor.innerText || '', title: S.currentFile });
+}
+
+function pushUndo() {
+  undoStack.push(snapshot());
+  if (undoStack.length > UNDO_MAX) undoStack.shift();
+  redoStack = [];
+  S.dirty = true;
+  updateUndoButtons();
+}
+
+function doUndo() {
+  if (!undoStack.length) return;
+  redoStack.push(snapshot());
+  const prev = JSON.parse(undoStack.pop());
+  editor.innerText = prev.content || '';
+  S.currentFile = prev.title || '無題';
+  document.getElementById('toolbar-title').textContent = S.currentFile;
+  updateStats(); updateUndoButtons(); updateSaveStatus();
+}
+
+function doRedo() {
+  if (!redoStack.length) return;
+  undoStack.push(snapshot());
+  const next = JSON.parse(redoStack.pop());
+  editor.innerText = next.content || '';
+  S.currentFile = next.title || '無題';
+  document.getElementById('toolbar-title').textContent = S.currentFile;
+  updateStats(); updateUndoButtons(); updateSaveStatus();
+}
+
+function updateUndoButtons() {
+  document.getElementById('btn-undo').classList.toggle('disabled', !undoStack.length);
+  document.getElementById('btn-redo').classList.toggle('disabled', !redoStack.length);
+}
+
+// ===== KEYBOARD SHORTCUTS =====
+window.addEventListener('keydown', e => {
+  const mod = e.ctrlKey || e.metaKey;
+  if (!mod) return;
+  if (e.key === 'z') { e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); }
+  if (e.key === 'y') { e.preventDefault(); doRedo(); }
+  if (e.key === 's') { e.preventDefault(); if (e.shiftKey) saveAs(); else saveOverwrite(); }
+});
+
+// beforeunload: 未保存時に離脱警告
+window.addEventListener('beforeunload', e => {
+  if (S.dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// ===== GRID & LAYOUT =====
+const PAD_TOP  = 16;
+const PAD_SIDE = 16;
+
+function computeGrid() {
+  const fs   = S.fontSize;
+  const colW = Math.round(fs * 1.6);
+  const cellH = fs;
+  const paperH = PAD_TOP * 2 + S.rows * cellH;
+  const paperW = PAD_SIDE * 2 + S.cols * colW;
+  return { fs, colW, cellH, paperH, paperW };
+}
+
+function applyAll() {
+  const { fs, colW, cellH, paperH, paperW } = computeGrid();
+
+  // エディター: 高さはrows分を最小値として、超えたら次列へ折り返す
+  // → min-height固定・heightはautoで折り返しを許可
+  editor.style.fontSize   = fs + 'px';
+  editor.style.lineHeight = colW + 'px';
+  editor.style.minHeight  = paperH + 'px';
+  editor.style.height     = paperH + 'px'; // ページ高さで折り返す
+  editor.style.minWidth   = paperW + 'px';
+  editor.style.width      = 'max-content';
+  editor.style.padding    = `${PAD_TOP}px ${PAD_SIDE}px`;
+
+  // 用紙もエディター幅に合わせて伸びる
+  paper.style.minHeight = paperH + 'px';
+  paper.style.height    = paperH + 'px';
+  paper.style.minWidth  = paperW + 'px';
+  paper.style.width     = 'max-content';
+
+  // キャンバスはエディターの実幅確定後に描画（ページ区切り線のみ）
+  requestAnimationFrame(() => {
+    const actualW = Math.max(editor.scrollWidth, paperW);
+    paper.style.width = actualW + 'px';
+
+    canvas.width  = actualW;
+    canvas.height = paperH;
+    canvas.style.width  = actualW + 'px';
+    canvas.style.height = paperH + 'px';
+
+    // colW はブラウザが実際に割り当てた line-height をgetComputedStyleで取得して使う
+    // → CSS で lineHeight = colW+'px' をセットしているので computed値がそのまま返る
+    const computedLH = parseFloat(getComputedStyle(editor).lineHeight) || colW;
+    renderPageLines({ colW: computedLH, paperH, paperW: actualW });
+  });
+
+  updateStats();
+}
+
+function renderPageLines({ colW, paperH, paperW }) {
+  // 背景
+  ctx.fillStyle = '#f5f0e8';
+  ctx.fillRect(0, 0, paperW, paperH);
+
+  // ページ区切りの計算
+  // エディターの padding は両端に PAD_SIDE ずつ（ページをまたいでも増えない）
+  // テキスト領域の右端 = paperW - PAD_SIDE
+  // テキスト領域の左端 = PAD_SIDE
+  // 1ページ分のテキスト幅 = S.cols * colW
+  // n番目の区切り線 x = (paperW - PAD_SIDE) - n * (S.cols * colW)
+
+  const textRight = paperW - PAD_SIDE;
+  const pageTextW = S.cols * colW;
+  const textAreaW = textRight - PAD_SIDE;
+  const numPages  = Math.ceil(textAreaW / pageTextW);
+
+  for (let p = 1; p < numPages; p++) {
+    const x = textRight - p * pageTextW;
+    if (x <= PAD_SIDE) break;
+
+    // 破線のページ区切り
+    ctx.save();
+    ctx.strokeStyle = 'rgba(160,120,60,0.5)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x, PAD_TOP * 0.5);
+    ctx.lineTo(x, paperH - PAD_TOP * 0.5);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // ページ番号（右から数えて p+1 ページ目）
+    ctx.save();
+    ctx.fillStyle = 'rgba(160,120,60,0.4)';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(String(p + 1), x - pageTextW / 2, paperH - 5);
+    ctx.restore();
+  }
+
+  // 1ページ目のページ番号
+  ctx.save();
+  ctx.fillStyle = 'rgba(160,120,60,0.4)';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('1', textRight - pageTextW / 2, paperH - 5);
+  ctx.restore();
+}
+
+new ResizeObserver(() => applyAll()).observe(paper);
+
+// ===== SETTINGS PANEL =====
+function toggleSettings() {
+  const p = document.getElementById('settings-panel');
+  const b = document.getElementById('btn-settings');
+  p.classList.toggle('open');
+  b.classList.toggle('active', p.classList.contains('open'));
+}
+
+function syncUI() {
+  document.getElementById('in-fontsize').value = S.fontSize;
+  document.getElementById('in-rows').value     = S.rows;
+  document.getElementById('in-cols').value     = S.cols;
+  const cpp = S.rows * S.cols;
+  document.getElementById('chars-per-page').textContent = `1頁 ${cpp}字`;
+  document.getElementById('grid-info').textContent = `${S.rows}×${S.cols}`;
+}
+
+const LIMITS = { fontSize:[10,36], rows:[5,60], cols:[3,40] };
+function adjustVal(key, d) { setVal(key, S[key] + d, ...LIMITS[key]); }
+function setVal(key, raw, min, max) {
+  S[key] = Math.min(max, Math.max(min, parseInt(raw) || S[key]));
+  syncUI(); applyAll(); saveCfg();
+  if (key === 'rows') showToast(`縦 ${S.rows} 行 / ページ`);
+  if (key === 'cols') showToast(`横 ${S.cols} 列 / ページ`);
+}
+
+function saveCfg() {
+  localStorage.setItem('tg_cfg', JSON.stringify(
+    { fontSize: S.fontSize, rows: S.rows, cols: S.cols }
+  ));
+}
+
+// ===== INPUT =====
+function onInput() {
+  pushUndo();
+  updateSaveStatus();
+  // 入力のたびに用紙幅を再計算（列が増えたとき横スクロールできるよう）
+  applyAll();
+  clearTimeout(autoSaveT);
+  autoSaveT = setTimeout(autosave, 1800);
+}
+
+function onKeyDown(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    document.execCommand('insertText', false, '　');
+  }
+}
+
+function updateStats() {
+  const text  = editor.innerText || '';
+  const chars = text.replace(/\n/g, '').length;
+  const cpp   = S.rows * S.cols;
+  const pages = Math.max(1, Math.ceil(chars / cpp));
+  document.getElementById('char-count').textContent = chars;
+  document.getElementById('page-count').textContent = pages;
+  document.getElementById('chars-per-page').textContent = `1頁 ${cpp}字`;
+}
+
+function updateSaveStatus() {
+  const ss = document.getElementById('save-status');
+  if (S.saveOk === 'ok') {
+    ss.textContent = '保存済'; ss.style.color = '#c9a84ccc';
+  } else if (S.dirty) {
+    ss.textContent = '未保存'; ss.style.color = '#c0392b99';
+  } else {
+    ss.textContent = '保存済'; ss.style.color = '#c9a84ccc';
+  }
+  // 上書き保存ボタン: fileHandle があれば明るく
+  const saveBtn = document.getElementById('btn-save');
+  saveBtn.style.color = fileHandle ? '#c9a84ccc' : '#c9a84c55';
+  saveBtn.title = fileHandle ? `上書き保存: ${S.currentFile} (Ctrl+S)` : '上書き保存（まず別名保存してください）';
+}
+
+// ===== AUTOSAVE (localStorage下書き) =====
+function autosave() {
+  localStorage.setItem('tg_last', JSON.stringify({ title: S.currentFile, content: editor.innerText || '' }));
+}
+
+// ===== SAVE: 上書き保存 =====
+// Save-the-Catの doSave() と同じ構造:
+//   fileHandle があれば createWritable() で上書き
+//   なければ saveAs() にフォールバック
+async function saveOverwrite() {
+  const text = editor.innerText || '';
+  if (hasFS && fileHandle) {
+    try {
+      const writable = await fileHandle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      S.dirty = false;
+      S.saveOk = 'ok';
+      autosave();
+      updateSaveStatus();
+      showToast('上書き保存しました');
+      setTimeout(() => { S.saveOk = null; updateSaveStatus(); }, 2000);
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      // fileHandle が無効になっていたら別名保存へ
+    }
+  }
+  // fileHandle なし or 非対応ブラウザ → 別名保存にフォールバック
+  await saveAs();
+}
+
+// ===== SAVE: 別名保存 =====
+// Save-the-Catの doSaveAs() と同じ構造:
+//   hasFS なら showSaveFilePicker → fileHandle を保持
+//   非対応なら Blob + <a> ダウンロード
+async function saveAs() {
+  const text = editor.innerText || '';
+  const safeName = (S.currentFile || '無題').replace(/[\\/:*?"<>|]/g, '_');
+
+  if (hasFS) {
+    try {
+      fileHandle = await window.showSaveFilePicker({
+        suggestedName: safeName + '.txt',
+        types: [{ description: 'テキストファイル', accept: { 'text/plain': ['.txt'] } }],
+      });
+      // 保存した名前をタイトルに反映
+      const fileName = fileHandle.name || safeName + '.txt';
+      S.currentFile = fileName.replace(/\.txt$/i, '');
+      document.getElementById('toolbar-title').textContent = S.currentFile;
+
+      const writable = await fileHandle.createWritable();
+      await writable.write(text);
+      await writable.close();
+
+      S.dirty = false;
+      S.saveOk = 'ok';
+      autosave();
+      updateSaveStatus();
+      showToast('「' + S.currentFile + '」を保存しました');
+      setTimeout(() => { S.saveOk = null; updateSaveStatus(); }, 2000);
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return; // キャンセル
+      // フォールバックへ
+    }
+  }
+
+  // File System Access API 非対応（Androidブラウザ等）→ Blob ダウンロード
+  showModal('ファイル名を入力', S.currentFile, (title) => {
+    if (!title) return;
+    S.currentFile = title;
+    document.getElementById('toolbar-title').textContent = title;
+
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = title + '.txt';
+    a.style.cssText = 'position:fixed;left:-9999px';
+    document.body.appendChild(a);
+    setTimeout(() => {
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 500);
+    }, 0);
+
+    // Blob保存の場合 fileHandle は取れないので null のまま
+    fileHandle = null;
+    S.dirty = false;
+    S.saveOk = 'ok';
+    autosave();
+    updateSaveStatus();
+    showToast('「' + title + '」を保存しました');
+    setTimeout(() => { S.saveOk = null; updateSaveStatus(); }, 2000);
+  });
+}
+
+// ===== OPEN =====
+async function openDoc() {
+  if (S.dirty && (editor.innerText || '').trim()) {
+    if (!confirm('未保存の変更があります。破棄して開きますか？')) return;
+  }
+
+  if (hasFS) {
+    try {
+      const [fh] = await window.showOpenFilePicker({
+        types: [{ description: 'テキストファイル', accept: { 'text/plain': ['.txt', '.md'] } }],
+        multiple: false,
+      });
+      const file = await fh.getFile();
+      const text = await file.text();
+      pushUndo();
+      editor.innerText = text;
+      S.currentFile = file.name.replace(/\.[^.]+$/, '');
+      document.getElementById('toolbar-title').textContent = S.currentFile;
+      fileHandle = fh; // 開いたファイルを上書き保存の対象にする
+      S.dirty = false;
+      updateStats(); updateSaveStatus();
+      showToast('「' + S.currentFile + '」を開きました');
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+
+  // フォールバック: input[type=file]
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.txt,.md';
+  inp.style.cssText = 'position:fixed;left:-9999px';
+  document.body.appendChild(inp);
+  inp.onchange = (e) => {
+    const f = e.target.files[0];
+    if (!f) { cleanup(); return; }
+    const r = new FileReader();
+    r.onload = (ev) => {
+      pushUndo();
+      editor.innerText = ev.target.result;
+      S.currentFile = f.name.replace(/\.[^.]+$/, '');
+      document.getElementById('toolbar-title').textContent = S.currentFile;
+      fileHandle = null; // input経由では fileHandle 取れない
+      S.dirty = false;
+      updateStats(); updateSaveStatus();
+      showToast('「' + S.currentFile + '」を開きました');
+      cleanup();
+    };
+    r.onerror = () => { alert('読み込みに失敗しました'); cleanup(); };
+    r.readAsText(f, 'UTF-8');
+  };
+  function cleanup() { try { document.body.removeChild(inp); } catch {} }
+  setTimeout(() => inp.click(), 0);
+}
+
+// ===== NEW =====
+function newDoc() {
+  if (S.dirty && (editor.innerText || '').trim()) {
+    if (!confirm('未保存の変更があります。新規作成しますか？')) return;
+  }
+  pushUndo();
+  editor.innerText = '';
+  S.currentFile = '無題';
+  fileHandle = null;
+  document.getElementById('toolbar-title').textContent = '無題';
+  S.dirty = false;
+  undoStack = []; redoStack = [];
+  updateStats(); updateUndoButtons(); updateSaveStatus();
+  showToast('新規文書を作成しました');
+}
+
+// ===== MODAL =====
+function showModal(title, def, cb) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-input').value = def || '';
+  modalCb = cb;
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('modal-input').focus(), 80);
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); modalCb = null; }
+function confirmModal() { const v = document.getElementById('modal-input').value.trim(); closeModal(); if (modalCb) modalCb(v); }
+document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target.id === 'modal-overlay') closeModal(); });
+document.getElementById('modal-input').addEventListener('keydown', e => { if (e.key === 'Enter') confirmModal(); if (e.key === 'Escape') closeModal(); });
+
+// ===== TOAST =====
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1900);
+}
+
+// ===== INIT =====
+function init() {
+  try {
+    const cfg = localStorage.getItem('tg_cfg');
+    if (cfg) {
+      const c = JSON.parse(cfg);
+      ['fontSize','rows','cols'].forEach(k => { if (c[k] !== undefined) S[k] = c[k]; });
+    }
+    const last = localStorage.getItem('tg_last');
+    if (last) {
+      const d = JSON.parse(last);
+      editor.innerText = d.content || '';
+      S.currentFile = d.title || '無題';
+    }
+  } catch(e) {}
+
+  applyAll();
+  syncUI();
+  updateUndoButtons();
+  updateSaveStatus();
+  document.getElementById('toolbar-title').textContent = S.currentFile;
+  setTimeout(() => { scroller.scrollLeft = scroller.scrollWidth; }, 60);
+}
+
+init();
+
+// Service Worker 登録（PWA・ホーム画面追加対応）
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
