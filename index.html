@@ -26,7 +26,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
   body {
-    background: #2c2416;
+    background: #c8b89a;
     font-family: 'Noto Serif JP', serif;
     height: 100dvh;
     display: flex; flex-direction: column;
@@ -63,31 +63,55 @@
   .tb-btn svg { width: 18px; height: 18px; }
 
   /* PAPER AREA */
-  #paper-wrap { flex: 1; overflow: hidden; background: #2c2416; position: relative; }
+  #paper-wrap { flex: 1; overflow: hidden; background: #c8b89a; position: relative; }
 
+  /*
+   * scroll-container: direction:rtl にすることで、
+   * 中身がオーバーフローしたとき右端が固定され左へスクロールする。
+   * これが縦書き（右→左）の自然な読み方向と一致する。
+   */
   #scroll-container {
     width: 100%; height: 100%;
-    overflow-x: auto; overflow-y: auto;
+    overflow-x: auto; overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    display: flex; align-items: flex-start;
+    direction: rtl;
     padding: 16px 20px;
   }
 
+  /*
+   * paper: 明示的にwidthをJSでセットする。
+   * direction:ltrに戻してeditor内のテキスト方向に影響させない。
+   * 高さはheightで固定、幅はJSで content に応じて更新。
+   */
   #paper {
     background: var(--washi);
-    box-shadow: -4px 0 20px rgba(0,0,0,0.3), 4px 0 20px rgba(0,0,0,0.3);
-    position: relative; flex-shrink: 0;
-    border-radius: 2px; overflow: hidden;
+    box-shadow: -2px 0 4px rgba(0,0,0,0.1), 2px 0 4px rgba(0,0,0,0.1);
+    position: relative;
+    border-radius: 2px;
+    overflow: hidden;
+    direction: ltr;
+    /* 上下中央揃え */
     margin-top: auto; margin-bottom: auto;
+    /* scroll-container内で唯一の子なので、
+       display:blockでdirection:rtlの恩恵を受ける */
+    display: block;
+    float: right; /* direction:rtl内で右寄せ */
   }
 
   #grid-canvas {
-    position: absolute; top: 0; left: 0;
+    position: absolute; top: 0; right: 0;
     pointer-events: none; z-index: 1; display: block;
+    background: transparent;
   }
 
+  /*
+   * editor: position:absoluteでpaperの右端に固定。
+   * テキストが増えると左方向に伸びる（writing-mode:vertical-rl の自然な挙動）。
+   * paperの幅はJSでeditor幅に追従させる。
+   */
   #editor {
-    position: absolute; top: 0; left: 0;
+    position: absolute;
+    top: 0; right: 0;
     writing-mode: vertical-rl; text-orientation: mixed;
     outline: none;
     font-family: 'Noto Serif JP', serif;
@@ -97,6 +121,9 @@
     caret-color: var(--vermillion);
     -webkit-user-select: text; user-select: text;
     letter-spacing: 0;
+    display: block;
+    min-width: 100%;
+    width: max-content;
   }
   #editor:empty::before {
     content: attr(data-placeholder);
@@ -338,7 +365,6 @@ const canvas   = document.getElementById('grid-canvas');
 const ctx      = canvas.getContext('2d');
 const scroller = document.getElementById('scroll-container');
 
-// File System Access API 対応チェック
 const hasFS = !!window.showSaveFilePicker;
 
 // ===== STATE =====
@@ -347,17 +373,14 @@ const S = {
   rows: 20,
   cols: 10,
   currentFile: '無題',
-  dirty: false,       // 未保存の変更があるか
-  saveOk: null,       // 'ok' | null （保存成功表示用）
+  dirty: false,
+  saveOk: null,
 };
 
-// File System Access API のファイルハンドル（上書き保存用）
 let fileHandle = null;
-
 let modalCb = null, autoSaveT = null;
 
 // ===== UNDO / REDO =====
-// Save-the-Catと同じ方式: JSON.stringifyでスナップショットを配列に積む
 const UNDO_MAX = 80;
 let undoStack = [], redoStack = [];
 
@@ -407,7 +430,6 @@ window.addEventListener('keydown', e => {
   if (e.key === 's') { e.preventDefault(); if (e.shiftKey) saveAs(); else saveOverwrite(); }
 });
 
-// beforeunload: 未保存時に離脱警告
 window.addEventListener('beforeunload', e => {
   if (S.dirty) { e.preventDefault(); e.returnValue = ''; }
 });
@@ -425,55 +447,74 @@ function computeGrid() {
   return { fs, colW, cellH, paperH, paperW };
 }
 
+/*
+ * applyAll: レイアウトの核心。
+ *
+ * 構造:
+ *   paper (position:relative, 明示的width/height)
+ *     └─ editor (position:absolute, right:0, top:0)
+ *
+ * editor は writing-mode:vertical-rl なので右端から左へ書く。
+ * height を固定することで行数を制御し、テキストが溢れると左へ列が増える。
+ * editor は position:absolute + right:0 で paper の右端に張り付く。
+ * paper の幅は JS で editor.scrollWidth に追従させる。
+ * これにより、テキストが増えても右端（1ページ目の開始位置）は不動。
+ */
 function applyAll() {
   const { fs, colW, cellH, paperH, paperW } = computeGrid();
 
-  // エディター: 高さはrows分を最小値として、超えたら次列へ折り返す
-  // → min-height固定・heightはautoで折り返しを許可
   editor.style.fontSize   = fs + 'px';
   editor.style.lineHeight = colW + 'px';
-  editor.style.minHeight  = paperH + 'px';
-  editor.style.height     = paperH + 'px'; // ページ高さで折り返す
-  editor.style.minWidth   = paperW + 'px';
-  editor.style.width      = 'max-content';
+  editor.style.height     = paperH + 'px';
   editor.style.padding    = `${PAD_TOP}px ${PAD_SIDE}px`;
 
-  // 用紙もエディター幅に合わせて伸びる
-  paper.style.minHeight = paperH + 'px';
-  paper.style.height    = paperH + 'px';
-  paper.style.minWidth  = paperW + 'px';
-  paper.style.width     = 'max-content';
+  // paper の最小サイズ（1ページ分）を設定
+  paper.style.height   = paperH + 'px';
+  paper.style.minWidth = paperW + 'px';
 
-  // キャンバスはエディターの実幅確定後に描画（ページ区切り線のみ）
-  requestAnimationFrame(() => {
-    const actualW = Math.max(editor.scrollWidth, paperW);
-    paper.style.width = actualW + 'px';
-
-    canvas.width  = actualW;
-    canvas.height = paperH;
-    canvas.style.width  = actualW + 'px';
-    canvas.style.height = paperH + 'px';
-
-    // colW はブラウザが実際に割り当てた line-height をgetComputedStyleで取得して使う
-    // → CSS で lineHeight = colW+'px' をセットしているので computed値がそのまま返る
-    const computedLH = parseFloat(getComputedStyle(editor).lineHeight) || colW;
-    renderPageLines({ colW: computedLH, paperH, paperW: actualW });
-  });
-
+  // editor のサイズ確定後に paper 幅を追従
+  requestAnimationFrame(syncPaperWidth);
+  scheduleCanvasRedraw();
   updateStats();
 }
 
-function renderPageLines({ colW, paperH, paperW }) {
-  // 背景
-  ctx.fillStyle = '#f5f0e8';
-  ctx.fillRect(0, 0, paperW, paperH);
+/*
+ * editor.scrollWidth に合わせて paper の幅を更新。
+ * editor は absolute なので paper の幅には自動影響しない。
+ * そのため明示的に paper.style.width をセットする。
+ */
+function syncPaperWidth() {
+  const { paperW } = computeGrid();
+  const edW = editor.scrollWidth;
+  const w = Math.max(edW, paperW);
+  paper.style.width = w + 'px';
+}
 
-  // ページ区切りの計算
-  // エディターの padding は両端に PAD_SIDE ずつ（ページをまたいでも増えない）
-  // テキスト領域の右端 = paperW - PAD_SIDE
-  // テキスト領域の左端 = PAD_SIDE
-  // 1ページ分のテキスト幅 = S.cols * colW
-  // n番目の区切り線 x = (paperW - PAD_SIDE) - n * (S.cols * colW)
+// キャンバス再描画を debounce でまとめる
+let canvasRedrawT = null;
+function scheduleCanvasRedraw() {
+  clearTimeout(canvasRedrawT);
+  canvasRedrawT = setTimeout(redrawCanvas, 60);
+}
+
+function redrawCanvas() {
+  syncPaperWidth(); // 最新のpaper幅を反映
+
+  const { paperH } = computeGrid();
+  const actualW = paper.offsetWidth;
+  const actualH = paper.offsetHeight || paperH;
+
+  canvas.width  = actualW;
+  canvas.height = actualH;
+  canvas.style.width  = actualW + 'px';
+  canvas.style.height = actualH + 'px';
+
+  const computedLH = parseFloat(getComputedStyle(editor).lineHeight) || computeGrid().colW;
+  renderPageLines({ colW: computedLH, paperH: actualH, paperW: actualW });
+}
+
+function renderPageLines({ colW, paperH, paperW }) {
+  ctx.clearRect(0, 0, paperW, paperH);
 
   const textRight = paperW - PAD_SIDE;
   const pageTextW = S.cols * colW;
@@ -496,10 +537,10 @@ function renderPageLines({ colW, paperH, paperW }) {
     ctx.setLineDash([]);
     ctx.restore();
 
-    // ページ番号（右から数えて p+1 ページ目）
+    // ページ番号
     ctx.save();
-    ctx.fillStyle = 'rgba(160,120,60,0.4)';
-    ctx.font = '10px sans-serif';
+    ctx.fillStyle = 'rgba(120,80,30,0.75)';
+    ctx.font = 'bold 13px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(String(p + 1), x - pageTextW / 2, paperH - 5);
     ctx.restore();
@@ -507,14 +548,17 @@ function renderPageLines({ colW, paperH, paperW }) {
 
   // 1ページ目のページ番号
   ctx.save();
-  ctx.fillStyle = 'rgba(160,120,60,0.4)';
-  ctx.font = '10px sans-serif';
+  ctx.fillStyle = 'rgba(120,80,30,0.75)';
+  ctx.font = 'bold 13px sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('1', textRight - pageTextW / 2, paperH - 5);
   ctx.restore();
 }
 
-new ResizeObserver(() => applyAll()).observe(paper);
+// paper サイズ変化を監視
+new ResizeObserver(() => {
+  scheduleCanvasRedraw();
+}).observe(paper);
 
 // ===== SETTINGS PANEL =====
 function toggleSettings() {
@@ -552,8 +596,12 @@ function saveCfg() {
 function onInput() {
   pushUndo();
   updateSaveStatus();
-  // 入力のたびに用紙幅を再計算（列が増えたとき横スクロールできるよう）
-  applyAll();
+  updateStats();
+  // editorの幅が変わった可能性があるのでpaperを追従
+  requestAnimationFrame(() => {
+    syncPaperWidth();
+    scheduleCanvasRedraw();
+  });
   clearTimeout(autoSaveT);
   autoSaveT = setTimeout(autosave, 1800);
 }
@@ -584,21 +632,17 @@ function updateSaveStatus() {
   } else {
     ss.textContent = '保存済'; ss.style.color = '#c9a84ccc';
   }
-  // 上書き保存ボタン: fileHandle があれば明るく
   const saveBtn = document.getElementById('btn-save');
   saveBtn.style.color = fileHandle ? '#c9a84ccc' : '#c9a84c55';
   saveBtn.title = fileHandle ? `上書き保存: ${S.currentFile} (Ctrl+S)` : '上書き保存（まず別名保存してください）';
 }
 
-// ===== AUTOSAVE (localStorage下書き) =====
+// ===== AUTOSAVE =====
 function autosave() {
   localStorage.setItem('tg_last', JSON.stringify({ title: S.currentFile, content: editor.innerText || '' }));
 }
 
 // ===== SAVE: 上書き保存 =====
-// Save-the-Catの doSave() と同じ構造:
-//   fileHandle があれば createWritable() で上書き
-//   なければ saveAs() にフォールバック
 async function saveOverwrite() {
   const text = editor.innerText || '';
   if (hasFS && fileHandle) {
@@ -615,17 +659,12 @@ async function saveOverwrite() {
       return;
     } catch (e) {
       if (e.name === 'AbortError') return;
-      // fileHandle が無効になっていたら別名保存へ
     }
   }
-  // fileHandle なし or 非対応ブラウザ → 別名保存にフォールバック
   await saveAs();
 }
 
 // ===== SAVE: 別名保存 =====
-// Save-the-Catの doSaveAs() と同じ構造:
-//   hasFS なら showSaveFilePicker → fileHandle を保持
-//   非対応なら Blob + <a> ダウンロード
 async function saveAs() {
   const text = editor.innerText || '';
   const safeName = (S.currentFile || '無題').replace(/[\\/:*?"<>|]/g, '_');
@@ -636,7 +675,6 @@ async function saveAs() {
         suggestedName: safeName + '.txt',
         types: [{ description: 'テキストファイル', accept: { 'text/plain': ['.txt'] } }],
       });
-      // 保存した名前をタイトルに反映
       const fileName = fileHandle.name || safeName + '.txt';
       S.currentFile = fileName.replace(/\.txt$/i, '');
       document.getElementById('toolbar-title').textContent = S.currentFile;
@@ -653,12 +691,10 @@ async function saveAs() {
       setTimeout(() => { S.saveOk = null; updateSaveStatus(); }, 2000);
       return;
     } catch (e) {
-      if (e.name === 'AbortError') return; // キャンセル
-      // フォールバックへ
+      if (e.name === 'AbortError') return;
     }
   }
 
-  // File System Access API 非対応（Androidブラウザ等）→ Blob ダウンロード
   showModal('ファイル名を入力', S.currentFile, (title) => {
     if (!title) return;
     S.currentFile = title;
@@ -675,7 +711,6 @@ async function saveAs() {
       setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 500);
     }, 0);
 
-    // Blob保存の場合 fileHandle は取れないので null のまま
     fileHandle = null;
     S.dirty = false;
     S.saveOk = 'ok';
@@ -704,9 +739,9 @@ async function openDoc() {
       editor.innerText = text;
       S.currentFile = file.name.replace(/\.[^.]+$/, '');
       document.getElementById('toolbar-title').textContent = S.currentFile;
-      fileHandle = fh; // 開いたファイルを上書き保存の対象にする
+      fileHandle = fh;
       S.dirty = false;
-      updateStats(); updateSaveStatus();
+      applyAll(); updateStats(); updateSaveStatus();
       showToast('「' + S.currentFile + '」を開きました');
       return;
     } catch (e) {
@@ -714,7 +749,6 @@ async function openDoc() {
     }
   }
 
-  // フォールバック: input[type=file]
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = '.txt,.md';
   inp.style.cssText = 'position:fixed;left:-9999px';
@@ -728,9 +762,9 @@ async function openDoc() {
       editor.innerText = ev.target.result;
       S.currentFile = f.name.replace(/\.[^.]+$/, '');
       document.getElementById('toolbar-title').textContent = S.currentFile;
-      fileHandle = null; // input経由では fileHandle 取れない
+      fileHandle = null;
       S.dirty = false;
-      updateStats(); updateSaveStatus();
+      applyAll(); updateStats(); updateSaveStatus();
       showToast('「' + S.currentFile + '」を開きました');
       cleanup();
     };
@@ -753,7 +787,7 @@ function newDoc() {
   document.getElementById('toolbar-title').textContent = '無題';
   S.dirty = false;
   undoStack = []; redoStack = [];
-  updateStats(); updateUndoButtons(); updateSaveStatus();
+  applyAll(); updateStats(); updateUndoButtons(); updateSaveStatus();
   showToast('新規文書を作成しました');
 }
 
@@ -769,6 +803,14 @@ function closeModal() { document.getElementById('modal-overlay').classList.remov
 function confirmModal() { const v = document.getElementById('modal-input').value.trim(); closeModal(); if (modalCb) modalCb(v); }
 document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target.id === 'modal-overlay') closeModal(); });
 document.getElementById('modal-input').addEventListener('keydown', e => { if (e.key === 'Enter') confirmModal(); if (e.key === 'Escape') closeModal(); });
+
+// ===== WHEEL → 横スクロール =====
+scroller.addEventListener('wheel', e => {
+  if (e.shiftKey) return;
+  e.preventDefault();
+  // direction:rtl のため scrollLeft は負の方向に増える
+  scroller.scrollLeft -= e.deltaY;
+}, { passive: false });
 
 // ===== TOAST =====
 function showToast(msg) {
@@ -798,12 +840,13 @@ function init() {
   updateUndoButtons();
   updateSaveStatus();
   document.getElementById('toolbar-title').textContent = S.currentFile;
-  setTimeout(() => { scroller.scrollLeft = scroller.scrollWidth; }, 60);
+  // direction:rtl では scrollLeft=0 が右端（1ページ目）
+  setTimeout(() => { scroller.scrollLeft = 0; }, 60);
 }
 
 init();
 
-// Service Worker 登録（PWA・ホーム画面追加対応）
+// Service Worker 登録
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
