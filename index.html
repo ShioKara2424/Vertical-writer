@@ -26,7 +26,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
   body {
-    background: #c8b89a;
+    background: #2c2416;
     font-family: 'Noto Serif JP', serif;
     height: 100dvh;
     display: flex; flex-direction: column;
@@ -63,7 +63,7 @@
   .tb-btn svg { width: 18px; height: 18px; }
 
   /* PAPER AREA */
-  #paper-wrap { flex: 1; overflow: hidden; background: #c8b89a; position: relative; }
+  #paper-wrap { flex: 1; overflow: hidden; background: #2c2416; position: relative; }
 
   #scroll-container {
     width: 100%; height: 100%;
@@ -75,7 +75,7 @@
 
   #paper {
     background: var(--washi);
-    box-shadow: -2px 0 4px rgba(0,0,0,0.1), 2px 0 4px rgba(0,0,0,0.1);
+    box-shadow: -4px 0 20px rgba(0,0,0,0.3), 4px 0 20px rgba(0,0,0,0.3);
     position: relative; flex-shrink: 0;
     border-radius: 2px; overflow: hidden;
     margin-top: auto; margin-bottom: auto;
@@ -84,13 +84,10 @@
   #grid-canvas {
     position: absolute; top: 0; left: 0;
     pointer-events: none; z-index: 1; display: block;
-    /* 背景はpaper CSSの--washiに任せ、キャンバス自体は透明 */
-    background: transparent;
   }
 
   #editor {
-    /* position:staticでpaperがエディターサイズに自然追従→チラつき防止 */
-    position: relative;
+    position: absolute; top: 0; left: 0;
     writing-mode: vertical-rl; text-orientation: mixed;
     outline: none;
     font-family: 'Noto Serif JP', serif;
@@ -100,7 +97,6 @@
     caret-color: var(--vermillion);
     -webkit-user-select: text; user-select: text;
     letter-spacing: 0;
-    display: block;
   }
   #editor:empty::before {
     content: attr(data-placeholder);
@@ -432,55 +428,45 @@ function computeGrid() {
 function applyAll() {
   const { fs, colW, cellH, paperH, paperW } = computeGrid();
 
-  // エディター: height固定でwriting-modeの折り返しを制御
-  // position:relativeなのでpaperがエディターサイズに自動追従する
+  // エディター: 高さはrows分を最小値として、超えたら次列へ折り返す
+  // → min-height固定・heightはautoで折り返しを許可
   editor.style.fontSize   = fs + 'px';
   editor.style.lineHeight = colW + 'px';
-  editor.style.height     = paperH + 'px';
+  editor.style.minHeight  = paperH + 'px';
+  editor.style.height     = paperH + 'px'; // ページ高さで折り返す
   editor.style.minWidth   = paperW + 'px';
   editor.style.width      = 'max-content';
   editor.style.padding    = `${PAD_TOP}px ${PAD_SIDE}px`;
 
-  // paperはエディター(position:relative)のサイズに自動追従するのでwidth/height不要
-  // ただし最小サイズだけ保証
+  // 用紙もエディター幅に合わせて伸びる
   paper.style.minHeight = paperH + 'px';
+  paper.style.height    = paperH + 'px';
   paper.style.minWidth  = paperW + 'px';
-  // width/heightはautoでエディターに追従
-  paper.style.width  = 'auto';
-  paper.style.height = 'auto';
+  paper.style.width     = 'max-content';
 
-  // キャンバスをエディターに重ねる（サイズはrAFで確定後にセット）
-  scheduleCanvasRedraw();
+  // キャンバスはエディターの実幅確定後に描画（ページ区切り線のみ）
+  requestAnimationFrame(() => {
+    const actualW = Math.max(editor.scrollWidth, paperW);
+    paper.style.width = actualW + 'px';
+
+    canvas.width  = actualW;
+    canvas.height = paperH;
+    canvas.style.width  = actualW + 'px';
+    canvas.style.height = paperH + 'px';
+
+    // colW はブラウザが実際に割り当てた line-height をgetComputedStyleで取得して使う
+    // → CSS で lineHeight = colW+'px' をセットしているので computed値がそのまま返る
+    const computedLH = parseFloat(getComputedStyle(editor).lineHeight) || colW;
+    renderPageLines({ colW: computedLH, paperH, paperW: actualW });
+  });
+
   updateStats();
 }
 
-// キャンバス再描画を debounce でまとめる（チラつき防止）
-let canvasRedrawT = null;
-function scheduleCanvasRedraw() {
-  clearTimeout(canvasRedrawT);
-  canvasRedrawT = setTimeout(redrawCanvas, 60);
-}
-
-function redrawCanvas() {
-  const { colW, paperH, paperW } = computeGrid();
-  const actualW = Math.max(paper.offsetWidth, paperW);
-  const actualH = Math.max(paper.offsetHeight, paperH);
-
-  // サイズが変わっていなければ再描画しない
-  if (canvas.width === actualW && canvas.height === actualH) return;
-
-  canvas.width  = actualW;
-  canvas.height = actualH;
-  canvas.style.width  = actualW + 'px';
-  canvas.style.height = actualH + 'px';
-
-  const computedLH = parseFloat(getComputedStyle(editor).lineHeight) || colW;
-  renderPageLines({ colW: computedLH, paperH: actualH, paperW: actualW });
-}
-
 function renderPageLines({ colW, paperH, paperW }) {
-  // キャンバスをクリア（透明）して区切り線だけ描く
-  ctx.clearRect(0, 0, paperW, paperH);
+  // 背景
+  ctx.fillStyle = '#f5f0e8';
+  ctx.fillRect(0, 0, paperW, paperH);
 
   // ページ区切りの計算
   // エディターの padding は両端に PAD_SIDE ずつ（ページをまたいでも増えない）
@@ -512,8 +498,8 @@ function renderPageLines({ colW, paperH, paperW }) {
 
     // ページ番号（右から数えて p+1 ページ目）
     ctx.save();
-    ctx.fillStyle = 'rgba(120,80,30,0.75)';
-    ctx.font = 'bold 13px sans-serif';
+    ctx.fillStyle = 'rgba(160,120,60,0.4)';
+    ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(String(p + 1), x - pageTextW / 2, paperH - 5);
     ctx.restore();
@@ -566,9 +552,8 @@ function saveCfg() {
 function onInput() {
   pushUndo();
   updateSaveStatus();
-  updateStats();
-  // キャンバスはdebounceで再描画（連続入力中は描画をまとめる）
-  scheduleCanvasRedraw();
+  // 入力のたびに用紙幅を再計算（列が増えたとき横スクロールできるよう）
+  applyAll();
   clearTimeout(autoSaveT);
   autoSaveT = setTimeout(autosave, 1800);
 }
@@ -784,15 +769,6 @@ function closeModal() { document.getElementById('modal-overlay').classList.remov
 function confirmModal() { const v = document.getElementById('modal-input').value.trim(); closeModal(); if (modalCb) modalCb(v); }
 document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target.id === 'modal-overlay') closeModal(); });
 document.getElementById('modal-input').addEventListener('keydown', e => { if (e.key === 'Enter') confirmModal(); if (e.key === 'Escape') closeModal(); });
-
-// ===== WHEEL → 横スクロール =====
-scroller.addEventListener('wheel', e => {
-  // 縦書きなので縦ホイールを横スクロールに変換
-  // Shift+ホイールは元々横スクロールなのでそのまま
-  if (e.shiftKey) return;
-  e.preventDefault();
-  scroller.scrollLeft += e.deltaY;
-}, { passive: false });
 
 // ===== TOAST =====
 function showToast(msg) {
