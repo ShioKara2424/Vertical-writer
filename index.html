@@ -70,14 +70,7 @@
     overflow-x: auto; overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     display: flex; align-items: flex-start;
-    justify-content: flex-end; /* 右端基準：新しい列は左に伸びる */
     padding: 16px 20px;
-    /* RTL方向でスクロール原点を右に */
-    direction: rtl;
-  }
-
-  #paper {
-    direction: ltr; /* paper内は通常のltr */
   }
 
   #paper {
@@ -86,7 +79,6 @@
     position: relative; flex-shrink: 0;
     border-radius: 2px; overflow: hidden;
     margin-top: auto; margin-bottom: auto;
-    direction: ltr; /* scroll-containerのrtlを打ち消す */
   }
 
   #grid-canvas {
@@ -529,8 +521,8 @@ function renderPageLines({ colW, paperH, paperW }) {
 
   // 1ページ目のページ番号
   ctx.save();
-  ctx.fillStyle = 'rgba(120,80,30,0.75)';
-  ctx.font = 'bold 13px sans-serif';
+  ctx.fillStyle = 'rgba(160,120,60,0.4)';
+  ctx.font = '10px sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('1', textRight - pageTextW / 2, paperH - 5);
   ctx.restore();
