@@ -33,7 +33,6 @@
     overflow: hidden;
   }
 
-  /* TOOLBAR */
   #toolbar {
     height: var(--toolbar-h);
     background: linear-gradient(180deg, #1a1208 0%, #2c2416 100%);
@@ -62,14 +61,8 @@
   .tb-btn.disabled { color: #c9a84c33 !important; pointer-events: none; }
   .tb-btn svg { width: 14px; height: 14px; }
 
-  /* PAPER AREA */
   #paper-wrap { flex: 1; overflow: hidden; background: #c8b89a; position: relative; }
 
-  /*
-   * scroll-container: direction:rtl にすることで、
-   * 中身がオーバーフローしたとき右端が固定され左へスクロールする。
-   * これが縦書き（右→左）の自然な読み方向と一致する。
-   */
   #scroll-container {
     width: 100%; height: 100%;
     overflow-x: auto; overflow-y: hidden;
@@ -78,11 +71,6 @@
     padding: 16px 20px;
   }
 
-  /*
-   * paper: 明示的にwidthをJSでセットする。
-   * direction:ltrに戻してeditor内のテキスト方向に影響させない。
-   * 高さはheightで固定、幅はJSで content に応じて更新。
-   */
   #paper {
     background: var(--washi);
     box-shadow: -2px 0 4px rgba(0,0,0,0.1), 2px 0 4px rgba(0,0,0,0.1);
@@ -90,12 +78,9 @@
     border-radius: 2px;
     overflow: hidden;
     direction: ltr;
-    /* 上下中央揃え */
     margin-top: auto; margin-bottom: auto;
-    /* scroll-container内で唯一の子なので、
-       display:blockでdirection:rtlの恩恵を受ける */
     display: block;
-    float: right; /* direction:rtl内で右寄せ */
+    float: right;
   }
 
   #grid-canvas {
@@ -104,11 +89,13 @@
     background: transparent;
   }
 
-  /*
-   * editor: position:absoluteでpaperの右端に固定。
-   * テキストが増えると左方向に伸びる（writing-mode:vertical-rl の自然な挙動）。
-   * paperの幅はJSでeditor幅に追従させる。
-   */
+  /* オーバーレイキャンバス: コメントハイライト・改行記号・ぶら下げ描画用 */
+  #overlay-canvas {
+    position: absolute; top: 0; right: 0;
+    pointer-events: none; z-index: 2; display: block;
+    background: transparent;
+  }
+
   #editor {
     position: absolute;
     top: 0; right: 0;
@@ -130,7 +117,6 @@
     color: rgba(100,80,50,0.3); pointer-events: none; font-style: italic;
   }
 
-  /* STATUS BAR */
   #statusbar {
     height: var(--status-h);
     background: linear-gradient(0deg, #1a1208 0%, #2c2416 100%);
@@ -146,17 +132,17 @@
   .status-item span { color: #c9a84ccc; }
   .status-sep { color: #c9a84c33; font-size: 9px; }
 
-  /* SETTINGS PANEL */
   #settings-panel {
     position: absolute; bottom: var(--status-h); left: 0; right: 0;
     background: #1a1208f2; border-top: 1px solid #c9a84c44;
     padding: 12px 16px; display: none; z-index: 20;
     backdrop-filter: blur(10px);
+    max-height: 60vh; overflow-y: auto;
   }
   #settings-panel.open { display: block; }
   .setting-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .setting-row:last-child { margin-bottom: 0; }
-  .setting-label { color: var(--gold); font-size: 12px; font-family: 'Noto Sans JP', sans-serif; letter-spacing: 0.06em; width: 96px; flex-shrink: 0; }
+  .setting-label { color: var(--gold); font-size: 12px; font-family: 'Noto Sans JP', sans-serif; letter-spacing: 0.06em; width: 110px; flex-shrink: 0; }
   .setting-controls { display: flex; align-items: center; gap: 6px; flex: 1; }
   .num-btn {
     width: 30px; height: 30px; border-radius: 6px;
@@ -174,22 +160,24 @@
   .num-input:focus { border-color: var(--vermillion); }
   .setting-unit { color: #c9a84c88; font-size: 11px; font-family: 'Noto Sans JP', sans-serif; }
   .toggle {
-    width: 46px; height: 26px; background: #3d3020; border-radius: 13px;
+    width: 42px; height: 22px; background: #3d3020; border-radius: 11px;
     position: relative; cursor: pointer; border: 1px solid #c9a84c33;
     transition: background 0.2s; flex-shrink: 0;
   }
   .toggle.on { background: #7a2d23; border-color: #c0392b88; }
   .toggle::after {
-    content: ''; position: absolute; width: 20px; height: 20px;
+    content: ''; position: absolute; width: 16px; height: 16px;
     background: #c9a84c66; border-radius: 50%; top: 2px; left: 2px;
     transition: transform 0.2s, background 0.2s;
   }
   .toggle.on::after { transform: translateX(20px); background: var(--vermillion); }
-  .toggle-text { font-size: 12px; font-family: 'Noto Sans JP', sans-serif; color: #c9a84c66; }
+  .toggle-text { font-size: 11px; font-family: 'Noto Sans JP', sans-serif; color: #c9a84c66; }
   .toggle.on ~ .toggle-text { color: #c0392b; }
   .chars-per-page { margin-left: auto; font-size: 11px; font-family: 'Noto Sans JP', sans-serif; color: #c9a84c55; }
+  .setting-sep {
+    border: none; border-top: 1px solid #c9a84c22; margin: 8px 0;
+  }
 
-  /* MODAL */
   #modal-overlay {
     display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
     z-index: 50; align-items: center; justify-content: center; backdrop-filter: blur(4px);
@@ -214,7 +202,6 @@
   .modal-btn.primary { background: var(--vermillion); color: #fff; }
   .modal-btn.secondary { background: rgba(100,80,50,0.1); color: var(--ink-light); }
 
-  /* TOAST */
   #toast {
     position: fixed; bottom: calc(var(--status-h) + 12px); left: 50%;
     transform: translateX(-50%) translateY(14px);
@@ -235,7 +222,6 @@
 <body>
 
 <div id="toolbar">
-  <!-- 新規 -->
   <button class="tb-btn" id="btn-new" onclick="newDoc()" title="新規">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -243,27 +229,22 @@
       <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
     </svg>
   </button>
-  <!-- 開く -->
   <button class="tb-btn" id="btn-open" onclick="openDoc()" title="開く">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
       <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
     </svg>
   </button>
-  <!-- Undo -->
   <button class="tb-btn" id="btn-undo" onclick="doUndo()" title="元に戻す (Ctrl+Z)">↩</button>
-  <!-- Redo -->
   <button class="tb-btn" id="btn-redo" onclick="doRedo()" title="やり直し (Ctrl+Y)">↪</button>
 
   <div id="toolbar-title">縦書きエディター</div>
 
-  <!-- 設定 -->
   <button class="tb-btn" id="btn-settings" onclick="toggleSettings()" title="設定">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
       <circle cx="12" cy="12" r="3"/>
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
     </svg>
   </button>
-  <!-- 別名保存 -->
   <button class="tb-btn" id="btn-saveas" onclick="saveAs()" title="別名保存">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
       <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
@@ -271,7 +252,6 @@
       <line x1="19" y1="8" x2="22" y2="5"/><line x1="22" y1="5" x2="19" y2="2"/>
     </svg>
   </button>
-  <!-- 上書き保存 -->
   <button class="tb-btn" id="btn-save" onclick="saveOverwrite()" title="上書き保存 (Ctrl+S)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
       <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
@@ -284,6 +264,7 @@
   <div id="scroll-container">
     <div id="paper">
       <canvas id="grid-canvas"></canvas>
+      <canvas id="overlay-canvas"></canvas>
       <div id="editor"
            contenteditable="true"
            spellcheck="false"
@@ -331,6 +312,21 @@
       <span class="chars-per-page" id="chars-per-page" style="color:#c9a84c99;font-size:13px;">200字</span>
     </div>
   </div>
+  <hr class="setting-sep">
+  <div class="setting-row">
+    <div class="setting-label">// コメント</div>
+    <div class="setting-controls">
+      <div class="toggle" id="tog-comment" onclick="toggleOpt('commentHL')"></div>
+      <span class="toggle-text">緑ハイライト</span>
+    </div>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">改行記号</div>
+    <div class="setting-controls">
+      <div class="toggle" id="tog-newline" onclick="toggleOpt('showNewline')"></div>
+      <span class="toggle-text">↵ 表示</span>
+    </div>
+  </div>
 </div>
 
 <div id="statusbar">
@@ -363,6 +359,8 @@ const editor   = document.getElementById('editor');
 const paper    = document.getElementById('paper');
 const canvas   = document.getElementById('grid-canvas');
 const ctx      = canvas.getContext('2d');
+const overlay  = document.getElementById('overlay-canvas');
+const octx     = overlay.getContext('2d');
 const scroller = document.getElementById('scroll-container');
 
 const hasFS = !!window.showSaveFilePicker;
@@ -375,6 +373,9 @@ const S = {
   currentFile: '無題',
   dirty: false,
   saveOk: null,
+  // オプション
+  commentHL: false,   // //コメントハイライト
+  showNewline: false,  // 改行記号表示
 };
 
 let fileHandle = null;
@@ -387,7 +388,6 @@ let undoStack = [], redoStack = [];
 function snapshot() {
   return JSON.stringify({ content: editor.innerText || '', title: S.currentFile });
 }
-
 function pushUndo() {
   undoStack.push(snapshot());
   if (undoStack.length > UNDO_MAX) undoStack.shift();
@@ -395,7 +395,6 @@ function pushUndo() {
   S.dirty = true;
   updateUndoButtons();
 }
-
 function doUndo() {
   if (!undoStack.length) return;
   redoStack.push(snapshot());
@@ -403,9 +402,8 @@ function doUndo() {
   editor.innerText = prev.content || '';
   S.currentFile = prev.title || '無題';
   document.getElementById('toolbar-title').textContent = S.currentFile;
-  updateStats(); updateUndoButtons(); updateSaveStatus();
+  updateStats(); updateUndoButtons(); updateSaveStatus(); applyAll();
 }
-
 function doRedo() {
   if (!redoStack.length) return;
   undoStack.push(snapshot());
@@ -413,9 +411,8 @@ function doRedo() {
   editor.innerText = next.content || '';
   S.currentFile = next.title || '無題';
   document.getElementById('toolbar-title').textContent = S.currentFile;
-  updateStats(); updateUndoButtons(); updateSaveStatus();
+  updateStats(); updateUndoButtons(); updateSaveStatus(); applyAll();
 }
-
 function updateUndoButtons() {
   document.getElementById('btn-undo').classList.toggle('disabled', !undoStack.length);
   document.getElementById('btn-redo').classList.toggle('disabled', !redoStack.length);
@@ -447,42 +444,28 @@ function computeGrid() {
   return { fs, colW, cellH, paperH, paperW };
 }
 
-/*
- * applyAll: レイアウトの核心。
- *
- * 構造:
- *   paper (position:relative, 明示的width/height)
- *     └─ editor (position:absolute, right:0, top:0)
- *
- * editor は writing-mode:vertical-rl なので右端から左へ書く。
- * height を固定することで行数を制御し、テキストが溢れると左へ列が増える。
- * editor は position:absolute + right:0 で paper の右端に張り付く。
- * paper の幅は JS で editor.scrollWidth に追従させる。
- * これにより、テキストが増えても右端（1ページ目の開始位置）は不動。
- */
 function applyAll() {
   const { fs, colW, cellH, paperH, paperW } = computeGrid();
 
   editor.style.fontSize   = fs + 'px';
   editor.style.lineHeight = colW + 'px';
-  editor.style.height     = paperH + 'px';
   editor.style.padding    = `${PAD_TOP}px ${PAD_SIDE}px`;
+  editor.style.height     = paperH + 'px';
+  editor.style.wordBreak  = 'break-all';
+  editor.style.overflowWrap = 'break-word';
+  editor.style.lineBreak  = 'auto';
+  paper.style.overflow    = 'hidden';
+  paper.style.height      = paperH + 'px';
+  paper.style.minWidth    = paperW + 'px';
 
-  // paper の最小サイズ（1ページ分）を設定
-  paper.style.height   = paperH + 'px';
-  paper.style.minWidth = paperW + 'px';
-
-  // editor のサイズ確定後に paper 幅を追従
-  requestAnimationFrame(syncPaperWidth);
-  scheduleCanvasRedraw();
+  requestAnimationFrame(() => {
+    syncPaperWidth();
+    scheduleCanvasRedraw();
+    scheduleOverlayRedraw();
+  });
   updateStats();
 }
 
-/*
- * editor.scrollWidth に合わせて paper の幅を更新。
- * editor は absolute なので paper の幅には自動影響しない。
- * そのため明示的に paper.style.width をセットする。
- */
 function syncPaperWidth() {
   const { paperW } = computeGrid();
   const edW = editor.scrollWidth;
@@ -490,7 +473,7 @@ function syncPaperWidth() {
   paper.style.width = w + 'px';
 }
 
-// キャンバス再描画を debounce でまとめる
+// ===== CANVAS: ページ区切り =====
 let canvasRedrawT = null;
 function scheduleCanvasRedraw() {
   clearTimeout(canvasRedrawT);
@@ -498,8 +481,7 @@ function scheduleCanvasRedraw() {
 }
 
 function redrawCanvas() {
-  syncPaperWidth(); // 最新のpaper幅を反映
-
+  syncPaperWidth();
   const { paperH } = computeGrid();
   const actualW = paper.offsetWidth;
   const actualH = paper.offsetHeight || paperH;
@@ -537,35 +519,331 @@ function renderPageLines({ colW, paperH, paperW }) {
     ctx.setLineDash([]);
     ctx.restore();
 
-    // ページ番号
+    // ページ番号: 右下（区切り線の少し左）
     ctx.save();
     ctx.fillStyle = 'rgba(120,80,30,0.75)';
     ctx.font = 'bold 13px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(String(p + 1), x - pageTextW / 2, paperH - 5);
+    ctx.textAlign = 'right';
+    ctx.fillText(String(p + 1), x - 6, paperH - 5);
     ctx.restore();
   }
 
-  // 1ページ目のページ番号
+  // 1ページ目のページ番号: 右下（右端PAD_SIDEの少し左）
   ctx.save();
   ctx.fillStyle = 'rgba(120,80,30,0.75)';
   ctx.font = 'bold 13px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('1', textRight - pageTextW / 2, paperH - 5);
+  ctx.textAlign = 'right';
+  ctx.fillText('1', textRight + PAD_SIDE - 6, paperH - 5);
   ctx.restore();
 }
 
-// paper サイズ変化を監視
+// ===== OVERLAY CANVAS: コメントHL, 改行記号 =====
+let overlayRedrawT = null;
+function scheduleOverlayRedraw() {
+  clearTimeout(overlayRedrawT);
+  overlayRedrawT = setTimeout(redrawOverlay, 80);
+}
+
+function redrawOverlay() {
+  const { paperH, colW: gridColW } = computeGrid();
+  const actualW = paper.offsetWidth;
+  const actualH = paper.offsetHeight || paperH;
+
+  overlay.width  = actualW;
+  overlay.height = actualH;
+  overlay.style.width  = actualW + 'px';
+  overlay.style.height = actualH + 'px';
+
+  octx.clearRect(0, 0, actualW, actualH);
+
+  const text = editor.innerText || '';
+  if (!text) return;
+
+  const fs = S.fontSize;
+  const computedLH = parseFloat(getComputedStyle(editor).lineHeight) || gridColW;
+  const paperRect = paper.getBoundingClientRect();
+
+  // charMapを一度だけ構築して両関数で共有
+  const mapped = (S.showNewline || S.commentHL) ? buildCharMap() : null;
+
+  if (S.showNewline && mapped) {
+    drawNewlineMarks(paperRect, fs, computedLH, mapped);
+  }
+  if (S.commentHL && mapped) {
+    drawCommentHighlights(paperRect, fs, computedLH, mapped);
+  }
+}
+
+/*
+ * 改行記号表示:
+ * charMapベースではなく、DOM上の改行要素（<br>, <div>境界）を
+ * 直接走査して座標を取得する方式。空行にも対応。
+ *
+ * contenteditable の改行構造:
+ *   Enter → <div>text<br></div> or テキスト<br>テキスト
+ *   空行 → <div><br></div>
+ *
+ * 方針: 各 <br> と各 <div>（editor直下、最初以外）の位置を取得し、
+ *       その位置に改行記号を描画する。
+ *       最後の暗黙の<br>（divの末尾br）は改行マーク不要な場合もあるので、
+ *       「次に兄弟ノードがない末尾br」かつ「親divが最後の子」なら除外する。
+ */
+function drawNewlineMarks(paperRect, fs, computedLH, mapped) {
+  const markSize = Math.round(fs * 0.55);
+  const range = document.createRange();
+
+  // editor直下の子を順に見て、改行位置を収集
+  const positions = [];
+
+  function getLastCharRect(node) {
+    // ノード内の最後のテキスト文字の座標を返す
+    const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+    let lastTextNode = null;
+    let tn;
+    while ((tn = walker.nextNode())) {
+      if (tn.textContent.length > 0) lastTextNode = tn;
+    }
+    if (lastTextNode) {
+      // 最後の非改行文字を探す
+      const txt = lastTextNode.textContent;
+      for (let i = txt.length - 1; i >= 0; i--) {
+        if (txt[i] !== '\n') {
+          try {
+            range.setStart(lastTextNode, i);
+            range.setEnd(lastTextNode, i + 1);
+            const r = range.getBoundingClientRect();
+            if (r.width || r.height) return r;
+          } catch(e) {}
+        }
+      }
+    }
+    return null;
+  }
+
+  function getBrRect(br) {
+    // br要素自体の座標を取得（空行用）
+    // rangeでbrを囲む
+    try {
+      range.selectNode(br);
+      const r = range.getBoundingClientRect();
+      if (r.x || r.y) return r;
+    } catch(e) {}
+    return null;
+  }
+
+  const children = Array.from(editor.childNodes);
+
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+
+    if (child.nodeType === Node.ELEMENT_NODE && child.tagName === 'BR') {
+      // editor直下の<br>: 改行位置
+      // ただし最後の子のbrは末尾なので除外
+      if (i === children.length - 1) continue;
+
+      // brの前にテキストがあればその文字の下に描画
+      const prev = child.previousSibling;
+      if (prev && prev.nodeType === Node.TEXT_NODE && prev.textContent.replace(/\n/g, '').length > 0) {
+        const r = getLastCharRect(prev);
+        if (r) {
+          positions.push({ x: r.left + r.width / 2, y: r.bottom });
+          continue;
+        }
+      }
+      // テキストがない場合（空行）: br自体の位置
+      const brR = getBrRect(child);
+      if (brR) {
+        positions.push({ x: brR.left + brR.width / 2, y: brR.top });
+      }
+
+    } else if (child.nodeType === Node.ELEMENT_NODE && (child.tagName === 'DIV' || child.tagName === 'P')) {
+      // <div> の末尾 = 改行位置（最後のdivは除外）
+      if (i === children.length - 1) continue;
+
+      // div内にテキストがあるか？
+      const innerText = child.textContent.replace(/\n/g, '');
+      if (innerText.length > 0) {
+        // 最後の文字の下に描画
+        const r = getLastCharRect(child);
+        if (r) {
+          positions.push({ x: r.left + r.width / 2, y: r.bottom });
+          continue;
+        }
+      }
+      // 空div（空行）: 中の<br>の位置を使う
+      const innerBr = child.querySelector('br');
+      if (innerBr) {
+        const brR = getBrRect(innerBr);
+        if (brR) {
+          positions.push({ x: brR.left + brR.width / 2, y: brR.top });
+          continue;
+        }
+      }
+      // それでもダメならdiv自体の位置
+      const divR = child.getBoundingClientRect();
+      if (divR.width || divR.height) {
+        positions.push({ x: divR.left + divR.width / 2, y: divR.top });
+      }
+
+    } else if (child.nodeType === Node.TEXT_NODE) {
+      // テキストノード内の \n
+      const txt = child.textContent;
+      for (let ci = 0; ci < txt.length; ci++) {
+        if (txt[ci] === '\n') {
+          if (ci > 0) {
+            // 直前の文字の下に描画
+            try {
+              range.setStart(child, ci - 1);
+              range.setEnd(child, ci);
+              const r = range.getBoundingClientRect();
+              if (r.width || r.height) {
+                positions.push({ x: r.left + r.width / 2, y: r.bottom });
+              }
+            } catch(e) {}
+          }
+        }
+      }
+    }
+  }
+
+  // 描画
+  for (const pos of positions) {
+    octx.save();
+    octx.fillStyle = 'rgba(160,120,60,0.35)';
+    octx.font = `${markSize}px "Noto Sans JP", sans-serif`;
+    octx.textAlign = 'center';
+    octx.textBaseline = 'top';
+    octx.fillText('↵',
+      pos.x - paperRect.left,
+      pos.y - paperRect.top + 1);
+    octx.restore();
+  }
+}
+
+/*
+ * コメントハイライト:
+ * DOMを直接走査して論理行（改行コード区切り）を構築し、
+ * 行頭が // で始まる行の全文字をRange APIで座標取得してハイライト。
+ * 
+ * contenteditable内の構造:
+ *   テキスト → TextNode
+ *   改行 → <br> or <div> 境界
+ * innerTextは使わず、DOM走査でcharMap（文字→テキストノード+ローカルオフセット）を構築。
+ */
+function drawCommentHighlights(paperRect, fs, computedLH, mapped) {
+  const { charMap, lineStarts } = mapped;
+  if (charMap.length === 0) return;
+
+  const range = document.createRange();
+
+  // 各論理行について、行頭が // かチェック
+  for (let li = 0; li < lineStarts.length; li++) {
+    const start = lineStarts[li];
+    const end = (li + 1 < lineStarts.length) ? lineStarts[li + 1] : charMap.length;
+    const lineLen = end - start;
+    if (lineLen < 2) continue;
+
+    // 行頭の2文字が // か？
+    const ch0 = charMap[start].node.textContent[charMap[start].localIdx];
+    const ch1 = charMap[start + 1].node.textContent[charMap[start + 1].localIdx];
+    if (ch0 !== '/' || ch1 !== '/') continue;
+
+    // この行の全文字をハイライト
+    for (let i = start; i < end; i++) {
+      const entry = charMap[i];
+      try {
+        range.setStart(entry.node, entry.localIdx);
+        range.setEnd(entry.node, entry.localIdx + 1);
+        const rect = range.getBoundingClientRect();
+        if (rect.width || rect.height) {
+          octx.save();
+          octx.fillStyle = 'rgba(80,200,80,0.15)';
+          octx.fillRect(
+            rect.left - paperRect.left,
+            rect.top - paperRect.top,
+            rect.width,
+            rect.height
+          );
+          octx.restore();
+        }
+      } catch(e) {}
+    }
+  }
+}
+
+/*
+ * editor内のDOMを走査して、文字単位のマップと論理行の開始位置を返す。
+ * contenteditable の構造:
+ *   初回入力: 直下にTextNode（+ 末尾<br>）
+ *   Enter後:  <div>TextNode<br></div> が並ぶ
+ * <div>の開始 = 新しい論理行の開始
+ * <br> = 改行（次が新しい論理行）
+ * テキストノード内の \n も改行扱い
+ */
+function buildCharMap() {
+  const charMap = [];   // [{node: TextNode, localIdx: number}, ...]
+  const lineStarts = [0]; // charMapインデックスで論理行の先頭
+  let needNewLine = false;
+
+  function walk(el) {
+    for (const child of el.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        const txt = child.textContent;
+        for (let i = 0; i < txt.length; i++) {
+          if (txt[i] === '\n') {
+            // テキストノード内の改行 → 新しい論理行
+            needNewLine = true;
+            continue;
+          }
+          if (needNewLine) {
+            lineStarts.push(charMap.length);
+            needNewLine = false;
+          }
+          charMap.push({ node: child, localIdx: i });
+        }
+      } else if (child.nodeType === Node.ELEMENT_NODE) {
+        if (child.tagName === 'BR') {
+          needNewLine = true;
+        } else if (child.tagName === 'DIV' || child.tagName === 'P') {
+          // ブロック要素 = 新しい論理行
+          needNewLine = true;
+          walk(child);
+          continue;
+        } else {
+          walk(child);
+          continue;
+        }
+      }
+    }
+  }
+
+  walk(editor);
+  return { charMap, lineStarts };
+}
+
 new ResizeObserver(() => {
   scheduleCanvasRedraw();
+  scheduleOverlayRedraw();
 }).observe(paper);
 
-// ===== SETTINGS PANEL =====
+// ===== SETTINGS =====
 function toggleSettings() {
   const p = document.getElementById('settings-panel');
   const b = document.getElementById('btn-settings');
   p.classList.toggle('open');
   b.classList.toggle('active', p.classList.contains('open'));
+}
+
+function toggleOpt(key) {
+  S[key] = !S[key];
+  syncToggles();
+  saveCfg();
+  applyAll();
+}
+
+function syncToggles() {
+  document.getElementById('tog-comment').classList.toggle('on', S.commentHL);
+  document.getElementById('tog-newline').classList.toggle('on', S.showNewline);
 }
 
 function syncUI() {
@@ -575,6 +853,7 @@ function syncUI() {
   const cpp = S.rows * S.cols;
   document.getElementById('chars-per-page').textContent = `1頁 ${cpp}字`;
   document.getElementById('grid-info').textContent = `${S.rows}×${S.cols}`;
+  syncToggles();
 }
 
 const LIMITS = { fontSize:[10,36], rows:[5,60], cols:[3,40] };
@@ -587,9 +866,10 @@ function setVal(key, raw, min, max) {
 }
 
 function saveCfg() {
-  localStorage.setItem('tg_cfg', JSON.stringify(
-    { fontSize: S.fontSize, rows: S.rows, cols: S.cols }
-  ));
+  localStorage.setItem('tg_cfg', JSON.stringify({
+    fontSize: S.fontSize, rows: S.rows, cols: S.cols,
+    commentHL: S.commentHL, showNewline: S.showNewline,
+  }));
 }
 
 // ===== INPUT =====
@@ -597,10 +877,10 @@ function onInput() {
   pushUndo();
   updateSaveStatus();
   updateStats();
-  // editorの幅が変わった可能性があるのでpaperを追従
   requestAnimationFrame(() => {
     syncPaperWidth();
     scheduleCanvasRedraw();
+    scheduleOverlayRedraw();
   });
   clearTimeout(autoSaveT);
   autoSaveT = setTimeout(autosave, 1800);
@@ -637,12 +917,11 @@ function updateSaveStatus() {
   saveBtn.title = fileHandle ? `上書き保存: ${S.currentFile} (Ctrl+S)` : '上書き保存（まず別名保存してください）';
 }
 
-// ===== AUTOSAVE =====
 function autosave() {
   localStorage.setItem('tg_last', JSON.stringify({ title: S.currentFile, content: editor.innerText || '' }));
 }
 
-// ===== SAVE: 上書き保存 =====
+// ===== SAVE =====
 async function saveOverwrite() {
   const text = editor.innerText || '';
   if (hasFS && fileHandle) {
@@ -650,25 +929,19 @@ async function saveOverwrite() {
       const writable = await fileHandle.createWritable();
       await writable.write(text);
       await writable.close();
-      S.dirty = false;
-      S.saveOk = 'ok';
-      autosave();
-      updateSaveStatus();
+      S.dirty = false; S.saveOk = 'ok';
+      autosave(); updateSaveStatus();
       showToast('上書き保存しました');
       setTimeout(() => { S.saveOk = null; updateSaveStatus(); }, 2000);
       return;
-    } catch (e) {
-      if (e.name === 'AbortError') return;
-    }
+    } catch (e) { if (e.name === 'AbortError') return; }
   }
   await saveAs();
 }
 
-// ===== SAVE: 別名保存 =====
 async function saveAs() {
   const text = editor.innerText || '';
   const safeName = (S.currentFile || '無題').replace(/[\\/:*?"<>|]/g, '_');
-
   if (hasFS) {
     try {
       fileHandle = await window.showSaveFilePicker({
@@ -678,44 +951,29 @@ async function saveAs() {
       const fileName = fileHandle.name || safeName + '.txt';
       S.currentFile = fileName.replace(/\.txt$/i, '');
       document.getElementById('toolbar-title').textContent = S.currentFile;
-
       const writable = await fileHandle.createWritable();
       await writable.write(text);
       await writable.close();
-
-      S.dirty = false;
-      S.saveOk = 'ok';
-      autosave();
-      updateSaveStatus();
+      S.dirty = false; S.saveOk = 'ok';
+      autosave(); updateSaveStatus();
       showToast('「' + S.currentFile + '」を保存しました');
       setTimeout(() => { S.saveOk = null; updateSaveStatus(); }, 2000);
       return;
-    } catch (e) {
-      if (e.name === 'AbortError') return;
-    }
+    } catch (e) { if (e.name === 'AbortError') return; }
   }
-
   showModal('ファイル名を入力', S.currentFile, (title) => {
     if (!title) return;
     S.currentFile = title;
     document.getElementById('toolbar-title').textContent = title;
-
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = title + '.txt';
     a.style.cssText = 'position:fixed;left:-9999px';
     document.body.appendChild(a);
-    setTimeout(() => {
-      a.click();
-      setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 500);
-    }, 0);
-
-    fileHandle = null;
-    S.dirty = false;
-    S.saveOk = 'ok';
-    autosave();
-    updateSaveStatus();
+    setTimeout(() => { a.click(); setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 500); }, 0);
+    fileHandle = null; S.dirty = false; S.saveOk = 'ok';
+    autosave(); updateSaveStatus();
     showToast('「' + title + '」を保存しました');
     setTimeout(() => { S.saveOk = null; updateSaveStatus(); }, 2000);
   });
@@ -726,7 +984,6 @@ async function openDoc() {
   if (S.dirty && (editor.innerText || '').trim()) {
     if (!confirm('未保存の変更があります。破棄して開きますか？')) return;
   }
-
   if (hasFS) {
     try {
       const [fh] = await window.showOpenFilePicker({
@@ -735,20 +992,15 @@ async function openDoc() {
       });
       const file = await fh.getFile();
       const text = await file.text();
-      pushUndo();
-      editor.innerText = text;
+      pushUndo(); editor.innerText = text;
       S.currentFile = file.name.replace(/\.[^.]+$/, '');
       document.getElementById('toolbar-title').textContent = S.currentFile;
-      fileHandle = fh;
-      S.dirty = false;
+      fileHandle = fh; S.dirty = false;
       applyAll(); updateStats(); updateSaveStatus();
       showToast('「' + S.currentFile + '」を開きました');
       return;
-    } catch (e) {
-      if (e.name === 'AbortError') return;
-    }
+    } catch (e) { if (e.name === 'AbortError') return; }
   }
-
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = '.txt,.md';
   inp.style.cssText = 'position:fixed;left:-9999px';
@@ -758,12 +1010,10 @@ async function openDoc() {
     if (!f) { cleanup(); return; }
     const r = new FileReader();
     r.onload = (ev) => {
-      pushUndo();
-      editor.innerText = ev.target.result;
+      pushUndo(); editor.innerText = ev.target.result;
       S.currentFile = f.name.replace(/\.[^.]+$/, '');
       document.getElementById('toolbar-title').textContent = S.currentFile;
-      fileHandle = null;
-      S.dirty = false;
+      fileHandle = null; S.dirty = false;
       applyAll(); updateStats(); updateSaveStatus();
       showToast('「' + S.currentFile + '」を開きました');
       cleanup();
@@ -780,13 +1030,10 @@ function newDoc() {
   if (S.dirty && (editor.innerText || '').trim()) {
     if (!confirm('未保存の変更があります。新規作成しますか？')) return;
   }
-  pushUndo();
-  editor.innerText = '';
-  S.currentFile = '無題';
-  fileHandle = null;
+  pushUndo(); editor.innerText = '';
+  S.currentFile = '無題'; fileHandle = null;
   document.getElementById('toolbar-title').textContent = '無題';
-  S.dirty = false;
-  undoStack = []; redoStack = [];
+  S.dirty = false; undoStack = []; redoStack = [];
   applyAll(); updateStats(); updateUndoButtons(); updateSaveStatus();
   showToast('新規文書を作成しました');
 }
@@ -804,11 +1051,10 @@ function confirmModal() { const v = document.getElementById('modal-input').value
 document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target.id === 'modal-overlay') closeModal(); });
 document.getElementById('modal-input').addEventListener('keydown', e => { if (e.key === 'Enter') confirmModal(); if (e.key === 'Escape') closeModal(); });
 
-// ===== WHEEL → 横スクロール =====
+// ===== WHEEL =====
 scroller.addEventListener('wheel', e => {
   if (e.shiftKey) return;
   e.preventDefault();
-  // direction:rtl のため scrollLeft は負の方向に増える
   scroller.scrollLeft -= e.deltaY;
 }, { passive: false });
 
@@ -825,7 +1071,9 @@ function init() {
     const cfg = localStorage.getItem('tg_cfg');
     if (cfg) {
       const c = JSON.parse(cfg);
-      ['fontSize','rows','cols'].forEach(k => { if (c[k] !== undefined) S[k] = c[k]; });
+      ['fontSize','rows','cols','commentHL','showNewline'].forEach(k => {
+        if (c[k] !== undefined) S[k] = c[k];
+      });
     }
     const last = localStorage.getItem('tg_last');
     if (last) {
@@ -840,13 +1088,11 @@ function init() {
   updateUndoButtons();
   updateSaveStatus();
   document.getElementById('toolbar-title').textContent = S.currentFile;
-  // direction:rtl では scrollLeft=0 が右端（1ページ目）
   setTimeout(() => { scroller.scrollLeft = 0; }, 60);
 }
 
 init();
 
-// Service Worker 登録
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
