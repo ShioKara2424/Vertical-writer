@@ -385,8 +385,51 @@ let modalCb = null, autoSaveT = null;
 const UNDO_MAX = 80;
 let undoStack = [], redoStack = [];
 
+function getCaretOffset() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return 0;
+  const range = sel.getRangeAt(0).cloneRange();
+  range.selectNodeContents(editor);
+  range.setEnd(sel.getRangeAt(0).startContainer, sel.getRangeAt(0).startOffset);
+  return range.toString().length;
+}
+
+function setCaretOffset(offset) {
+  const sel = window.getSelection();
+  // テキストノードを走査してoffset位置を探す
+  let remaining = offset;
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const len = node.textContent.length;
+    if (remaining <= len) {
+      try {
+        const range = document.createRange();
+        range.setStart(node, remaining);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch(e) {}
+      return;
+    }
+    remaining -= len;
+  }
+  // offsetがテキスト末尾を超えていたら末尾にセット
+  try {
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch(e) {}
+}
+
 function snapshot() {
-  return JSON.stringify({ content: editor.innerText || '', title: S.currentFile });
+  return JSON.stringify({
+    content: editor.innerText || '',
+    title: S.currentFile,
+    caret: getCaretOffset(),
+  });
 }
 function pushUndo() {
   undoStack.push(snapshot());
@@ -402,6 +445,9 @@ function doUndo() {
   editor.innerText = prev.content || '';
   S.currentFile = prev.title || '無題';
   document.getElementById('toolbar-title').textContent = S.currentFile;
+  if (prev.caret !== undefined) {
+    requestAnimationFrame(() => setCaretOffset(prev.caret));
+  }
   updateStats(); updateUndoButtons(); updateSaveStatus(); applyAll();
 }
 function doRedo() {
@@ -411,6 +457,9 @@ function doRedo() {
   editor.innerText = next.content || '';
   S.currentFile = next.title || '無題';
   document.getElementById('toolbar-title').textContent = S.currentFile;
+  if (next.caret !== undefined) {
+    requestAnimationFrame(() => setCaretOffset(next.caret));
+  }
   updateStats(); updateUndoButtons(); updateSaveStatus(); applyAll();
 }
 function updateUndoButtons() {
@@ -467,10 +516,22 @@ function applyAll() {
 }
 
 function syncPaperWidth() {
-  const { paperW } = computeGrid();
-  const edW = editor.scrollWidth;
-  const w = Math.max(edW, paperW);
-  paper.style.width = w + 'px';
+  const { paperW, colW } = computeGrid();
+  const computedLH = parseFloat(getComputedStyle(editor).lineHeight) || colW;
+  const pageTextW = S.cols * computedLH;
+
+  // editorのmin-widthを一旦外して、テキスト内容だけの実幅を測る
+  editor.style.minWidth = '0';
+  const contentW = editor.scrollWidth;
+  editor.style.minWidth = '100%';
+
+  // テキストが使っているページ数を算出し、+1ページ
+  const textAreaW = Math.max(contentW - PAD_SIDE * 2, 0);
+  const usedPages = Math.max(1, Math.ceil(textAreaW / pageTextW));
+  const totalPages = usedPages + 1;
+  const w = PAD_SIDE * 2 + totalPages * pageTextW;
+
+  paper.style.width = Math.max(w, paperW) + 'px';
 }
 
 // ===== CANVAS: ページ区切り =====
