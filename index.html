@@ -1162,3 +1162,1131 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
+    height: var(--toolbar-h);
+    background: linear-gradient(180deg, #1a1208 0%, #2c2416 100%);
+    border-bottom: 1px solid #c9a84c44;
+    display: flex; align-items: center;
+    padding: 0 8px; gap: 2px;
+    flex-shrink: 0; z-index: 10;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  }
+  #toolbar-title {
+    flex: 1; color: var(--gold);
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.12em; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding: 0 4px;
+  }
+  .tb-btn {
+    width: 26px; height: 26px; border-radius: 6px; border: none;
+    background: transparent; color: #c9a84c99;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s; flex-shrink: 0;
+    font-size: 12px;
+  }
+  .tb-btn:active { background: #c9a84c22; color: var(--gold); }
+  .tb-btn.active { color: var(--vermillion) !important; }
+  .tb-btn.disabled { color: #c9a84c33 !important; pointer-events: none; }
+  .tb-btn svg { width: 14px; height: 14px; }
+
+  #paper-wrap { flex: 1; overflow: hidden; background: #c8b89a; position: relative; }
+
+  #scroll-container {
+    width: 100%; height: 100%;
+    overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    direction: rtl;
+    padding: 16px 20px;
+  }
+
+  #paper {
+    background: var(--washi);
+    box-shadow: -2px 0 4px rgba(0,0,0,0.1), 2px 0 4px rgba(0,0,0,0.1);
+    position: relative;
+    border-radius: 2px;
+    overflow: hidden;
+    direction: ltr;
+    margin-top: auto; margin-bottom: auto;
+    display: block;
+    float: right;
+  }
+
+  #grid-canvas {
+    position: absolute; top: 0; right: 0;
+    pointer-events: none; z-index: 1; display: block;
+    background: transparent;
+  }
+
+  /* オーバーレイキャンバス: コメントハイライト・改行記号・ぶら下げ描画用 */
+  #overlay-canvas {
+    position: absolute; top: 0; right: 0;
+    pointer-events: none; z-index: 2; display: block;
+    background: transparent;
+  }
+
+  #editor {
+    position: absolute;
+    top: 0; right: 0;
+    writing-mode: vertical-rl; text-orientation: mixed;
+    outline: none;
+    font-family: 'Noto Serif JP', serif;
+    color: var(--ink);
+    word-break: break-all; white-space: pre-wrap; overflow-wrap: break-word;
+    z-index: 3;
+    caret-color: var(--vermillion);
+    -webkit-user-select: text; user-select: text;
+    letter-spacing: 0;
+    display: block;
+    min-width: 100%;
+    width: max-content;
+  }
+  #editor:empty::before {
+    content: attr(data-placeholder);
+    color: rgba(100,80,50,0.3); pointer-events: none; font-style: italic;
+  }
+
+  #statusbar {
+    height: var(--status-h);
+    background: linear-gradient(0deg, #1a1208 0%, #2c2416 100%);
+    border-top: 1px solid #c9a84c33;
+    display: flex; align-items: center;
+    padding: 0 8px; gap: 6px; flex-shrink: 0;
+  }
+  .status-item {
+    font-family: 'Noto Sans JP', sans-serif; font-size: 9px;
+    color: #c9a84c88; display: flex; align-items: center; gap: 3px;
+    letter-spacing: 0.04em; white-space: nowrap;
+  }
+  .status-item span { color: #c9a84ccc; }
+  .status-sep { color: #c9a84c33; font-size: 9px; }
+
+  #settings-panel {
+    position: absolute; bottom: var(--status-h); left: 0; right: 0;
+    background: #1a1208f2; border-top: 1px solid #c9a84c44;
+    padding: 12px 16px; display: none; z-index: 20;
+    backdrop-filter: blur(10px);
+    max-height: 60vh; overflow-y: auto;
+  }
+  #settings-panel.open { display: block; }
+  .setting-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .setting-row:last-child { margin-bottom: 0; }
+  .setting-label { color: var(--gold); font-size: 12px; font-family: 'Noto Sans JP', sans-serif; letter-spacing: 0.06em; width: 110px; flex-shrink: 0; }
+  .setting-controls { display: flex; align-items: center; gap: 6px; flex: 1; }
+  .num-btn {
+    width: 30px; height: 30px; border-radius: 6px;
+    border: 1px solid #c9a84c44; background: #2c2416; color: var(--gold);
+    font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-family: sans-serif;
+  }
+  .num-btn:active { background: #c9a84c22; }
+  .num-input {
+    width: 52px; text-align: center; background: #2c2416;
+    border: 1px solid #c9a84c44; border-radius: 6px;
+    color: var(--gold); font-size: 14px; font-family: 'Noto Sans JP', sans-serif;
+    padding: 4px; outline: none;
+  }
+  .num-input:focus { border-color: var(--vermillion); }
+  .setting-unit { color: #c9a84c88; font-size: 11px; font-family: 'Noto Sans JP', sans-serif; }
+  .toggle {
+    width: 42px; height: 22px; background: #3d3020; border-radius: 11px;
+    position: relative; cursor: pointer; border: 1px solid #c9a84c33;
+    transition: background 0.2s; flex-shrink: 0;
+  }
+  .toggle.on { background: #7a2d23; border-color: #c0392b88; }
+  .toggle::after {
+    content: ''; position: absolute; width: 16px; height: 16px;
+    background: #c9a84c66; border-radius: 50%; top: 2px; left: 2px;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .toggle.on::after { transform: translateX(20px); background: var(--vermillion); }
+  .toggle-text { font-size: 11px; font-family: 'Noto Sans JP', sans-serif; color: #c9a84c66; }
+  .toggle.on ~ .toggle-text { color: #c0392b; }
+  .chars-per-page { margin-left: auto; font-size: 11px; font-family: 'Noto Sans JP', sans-serif; color: #c9a84c55; }
+  .setting-sep {
+    border: none; border-top: 1px solid #c9a84c22; margin: 8px 0;
+  }
+
+  #modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 50; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+  }
+  #modal-overlay.open { display: flex; }
+  #modal {
+    background: var(--washi); border-radius: 12px; padding: 24px;
+    width: 85%; max-width: 340px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  #modal h2 { font-size: 16px; color: var(--ink); margin-bottom: 16px; text-align: center; letter-spacing: 0.1em; }
+  .modal-input {
+    width: 100%; border: 1px solid rgba(100,80,50,0.3); border-radius: 8px;
+    padding: 10px 12px; font-family: 'Noto Serif JP', serif; font-size: 14px;
+    background: #fff8f0; color: var(--ink); margin-bottom: 12px; outline: none;
+  }
+  .modal-input:focus { border-color: var(--vermillion); }
+  .modal-btns { display: flex; gap: 8px; }
+  .modal-btn {
+    flex: 1; padding: 10px; border-radius: 8px; border: none;
+    font-family: 'Noto Serif JP', serif; font-size: 14px; cursor: pointer; letter-spacing: 0.05em;
+  }
+  .modal-btn.primary { background: var(--vermillion); color: #fff; }
+  .modal-btn.secondary { background: rgba(100,80,50,0.1); color: var(--ink-light); }
+
+  #toast {
+    position: fixed; bottom: calc(var(--status-h) + 12px); left: 50%;
+    transform: translateX(-50%) translateY(14px);
+    background: #1a1208ee; color: var(--gold); padding: 7px 18px; border-radius: 20px;
+    font-size: 12px; font-family: 'Noto Sans JP', sans-serif;
+    opacity: 0; transition: opacity 0.25s, transform 0.25s;
+    pointer-events: none; z-index: 100; white-space: nowrap;
+    border: 1px solid #c9a84c44; letter-spacing: 0.05em;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  #scroll-container::-webkit-scrollbar { height: 3px; }
+  #scroll-container::-webkit-scrollbar-thumb { background: #c9a84c55; border-radius: 2px; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  #paper { animation: fadeIn 0.35s ease; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <button class="tb-btn" id="btn-new" onclick="newDoc()" title="新規">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14,2 14,8 20,8"/>
+      <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+    </svg>
+  </button>
+  <button class="tb-btn" id="btn-open" onclick="openDoc()" title="開く">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+    </svg>
+  </button>
+  <button class="tb-btn" id="btn-undo" onclick="doUndo()" title="元に戻す (Ctrl+Z)">↩</button>
+  <button class="tb-btn" id="btn-redo" onclick="doRedo()" title="やり直し (Ctrl+Y)">↪</button>
+
+  <div id="toolbar-title">縦書きエディター</div>
+
+  <button class="tb-btn" id="btn-settings" onclick="toggleSettings()" title="設定">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+  <button class="tb-btn" id="btn-saveas" onclick="saveAs()" title="別名保存">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+      <polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/>
+      <line x1="19" y1="8" x2="22" y2="5"/><line x1="22" y1="5" x2="19" y2="2"/>
+    </svg>
+  </button>
+  <button class="tb-btn" id="btn-save" onclick="saveOverwrite()" title="上書き保存 (Ctrl+S)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+      <polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/>
+    </svg>
+  </button>
+</div>
+
+<div id="paper-wrap">
+  <div id="scroll-container">
+    <div id="paper">
+      <canvas id="grid-canvas"></canvas>
+      <canvas id="overlay-canvas"></canvas>
+      <div id="editor"
+           contenteditable="true"
+           spellcheck="false"
+           data-placeholder="ここに文章を入力してください。"
+           oninput="onInput()"
+           onkeydown="onKeyDown(event)"></div>
+    </div>
+  </div>
+</div>
+
+<div id="settings-panel">
+  <div class="setting-row">
+    <div class="setting-label">文字サイズ</div>
+    <div class="setting-controls">
+      <button class="num-btn" onclick="adjustVal('fontSize',-1)">−</button>
+      <input class="num-input" id="in-fontsize" type="number" min="10" max="36" value="18"
+             onchange="setVal('fontSize',this.value,10,36)">
+      <span class="setting-unit">px</span>
+      <button class="num-btn" onclick="adjustVal('fontSize',1)">＋</button>
+    </div>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">縦（行数）</div>
+    <div class="setting-controls">
+      <button class="num-btn" onclick="adjustVal('rows',-1)">−</button>
+      <input class="num-input" id="in-rows" type="number" min="5" max="60" value="20"
+             onchange="setVal('rows',this.value,5,60)">
+      <span class="setting-unit">行 / ページ</span>
+      <button class="num-btn" onclick="adjustVal('rows',1)">＋</button>
+    </div>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">横（列数）</div>
+    <div class="setting-controls">
+      <button class="num-btn" onclick="adjustVal('cols',-1)">−</button>
+      <input class="num-input" id="in-cols" type="number" min="3" max="40" value="10"
+             onchange="setVal('cols',this.value,3,40)">
+      <span class="setting-unit">列 / ページ</span>
+      <button class="num-btn" onclick="adjustVal('cols',1)">＋</button>
+    </div>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">1頁の文字数</div>
+    <div class="setting-controls">
+      <span class="chars-per-page" id="chars-per-page" style="color:#c9a84c99;font-size:13px;">200字</span>
+    </div>
+  </div>
+  <hr class="setting-sep">
+  <div class="setting-row">
+    <div class="setting-label">// コメント</div>
+    <div class="setting-controls">
+      <div class="toggle" id="tog-comment" onclick="toggleOpt('commentHL')"></div>
+      <span class="toggle-text">緑ハイライト</span>
+    </div>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">改行記号</div>
+    <div class="setting-controls">
+      <div class="toggle" id="tog-newline" onclick="toggleOpt('showNewline')"></div>
+      <span class="toggle-text">↵ 表示</span>
+    </div>
+  </div>
+</div>
+
+<div id="statusbar">
+  <div class="status-item">文字数 <span id="char-count">0</span></div>
+  <div class="status-sep">｜</div>
+  <div class="status-item">ページ <span id="page-count">1</span></div>
+  <div class="status-sep">｜</div>
+  <div class="status-item">行×列 <span id="grid-info">20×10</span></div>
+  <div class="status-sep">｜</div>
+  <div class="status-item" id="save-status">未保存</div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal">
+    <h2 id="modal-title">ファイル名</h2>
+    <input type="text" class="modal-input" id="modal-input" placeholder="タイトルを入力">
+    <div class="modal-btns">
+      <button class="modal-btn secondary" onclick="closeModal()">キャンセル</button>
+      <button class="modal-btn primary" onclick="confirmModal()">決定</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+const editor   = document.getElementById('editor');
+const paper    = document.getElementById('paper');
+const canvas   = document.getElementById('grid-canvas');
+const ctx      = canvas.getContext('2d');
+const overlay  = document.getElementById('overlay-canvas');
+const octx     = overlay.getContext('2d');
+const scroller = document.getElementById('scroll-container');
+
+const hasFS = !!window.showSaveFilePicker;
+
+// ===== STATE =====
+const S = {
+  fontSize: 18,
+  rows: 20,
+  cols: 10,
+  currentFile: '無題',
+  dirty: false,
+  saveOk: null,
+  // オプション
+  commentHL: false,   // //コメントハイライト
+  showNewline: false,  // 改行記号表示
+};
+
+let fileHandle = null;
+let modalCb = null, autoSaveT = null;
+
+// ===== UNDO / REDO =====
+const UNDO_MAX = 80;
+let undoStack = [], redoStack = [];
+
+function getCaretOffset() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return 0;
+  const range = sel.getRangeAt(0).cloneRange();
+  range.selectNodeContents(editor);
+  range.setEnd(sel.getRangeAt(0).startContainer, sel.getRangeAt(0).startOffset);
+  return range.toString().length;
+}
+
+function setCaretOffset(offset) {
+  const sel = window.getSelection();
+  // テキストノードを走査してoffset位置を探す
+  let remaining = offset;
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const len = node.textContent.length;
+    if (remaining <= len) {
+      try {
+        const range = document.createRange();
+        range.setStart(node, remaining);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch(e) {}
+      return;
+    }
+    remaining -= len;
+  }
+  // offsetがテキスト末尾を超えていたら末尾にセット
+  try {
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch(e) {}
+}
+
+function snapshot() {
+  return JSON.stringify({
+    content: editor.innerText || '',
+    title: S.currentFile,
+    caret: getCaretOffset(),
+  });
+}
+function pushUndo() {
+  undoStack.push(snapshot());
+  if (undoStack.length > UNDO_MAX) undoStack.shift();
+  redoStack = [];
+  S.dirty = true;
+  updateUndoButtons();
+}
+function doUndo() {
+  if (!undoStack.length) return;
+  redoStack.push(snapshot());
+  const prev = JSON.parse(undoStack.pop());
+  editor.innerText = prev.content || '';
+  S.currentFile = prev.title || '無題';
+  document.getElementById('toolbar-title').textContent = S.currentFile;
+  if (prev.caret !== undefined) {
+    requestAnimationFrame(() => setCaretOffset(prev.caret));
+  }
+  updateStats(); updateUndoButtons(); updateSaveStatus(); applyAll();
+}
+function doRedo() {
+  if (!redoStack.length) return;
+  undoStack.push(snapshot());
+  const next = JSON.parse(redoStack.pop());
+  editor.innerText = next.content || '';
+  S.currentFile = next.title || '無題';
+  document.getElementById('toolbar-title').textContent = S.currentFile;
+  if (next.caret !== undefined) {
+    requestAnimationFrame(() => setCaretOffset(next.caret));
+  }
+  updateStats(); updateUndoButtons(); updateSaveStatus(); applyAll();
+}
+function updateUndoButtons() {
+  document.getElementById('btn-undo').classList.toggle('disabled', !undoStack.length);
+  document.getElementById('btn-redo').classList.toggle('disabled', !redoStack.length);
+}
+
+// ===== KEYBOARD SHORTCUTS =====
+window.addEventListener('keydown', e => {
+  const mod = e.ctrlKey || e.metaKey;
+  if (!mod) return;
+  if (e.key === 'z') { e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); }
+  if (e.key === 'y') { e.preventDefault(); doRedo(); }
+  if (e.key === 's') { e.preventDefault(); if (e.shiftKey) saveAs(); else saveOverwrite(); }
+});
+
+window.addEventListener('beforeunload', e => {
+  if (S.dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// ===== GRID & LAYOUT =====
+const PAD_TOP  = 16;
+const PAD_SIDE = 16;
+
+function computeGrid() {
+  const fs   = S.fontSize;
+  const colW = Math.round(fs * 1.6);
+  const cellH = fs;
+  const paperH = PAD_TOP * 2 + S.rows * cellH;
+  const paperW = PAD_SIDE * 2 + S.cols * colW;
+  return { fs, colW, cellH, paperH, paperW };
+}
+
+function applyAll() {
+  const { fs, colW, cellH, paperH, paperW } = computeGrid();
+
+  editor.style.fontSize   = fs + 'px';
+  editor.style.lineHeight = colW + 'px';
+  editor.style.padding    = `${PAD_TOP}px ${PAD_SIDE}px`;
+  editor.style.height     = paperH + 'px';
+  editor.style.wordBreak  = 'break-all';
+  editor.style.overflowWrap = 'break-word';
+  editor.style.lineBreak  = 'auto';
+  paper.style.overflow    = 'hidden';
+  paper.style.height      = paperH + 'px';
+  paper.style.minWidth    = paperW + 'px';
+
+  requestAnimationFrame(() => {
+    syncPaperWidth();
+    scheduleCanvasRedraw();
+    scheduleOverlayRedraw();
+  });
+  updateStats();
+}
+
+function syncPaperWidth() {
+  const { paperW, colW } = computeGrid();
+  const computedLH = parseFloat(getComputedStyle(editor).lineHeight) || colW;
+  const pageTextW = S.cols * computedLH;
+
+  // editorのmin-widthを一旦外して、テキスト内容だけの実幅を測る
+  editor.style.minWidth = '0';
+  const contentW = editor.scrollWidth;
+  editor.style.minWidth = '100%';
+
+  // テキストが使っているページ数を算出し、+1ページ
+  const textAreaW = Math.max(contentW - PAD_SIDE * 2, 0);
+  const usedPages = Math.max(1, Math.ceil(textAreaW / pageTextW));
+  const totalPages = usedPages + 1;
+  const w = PAD_SIDE * 2 + totalPages * pageTextW;
+
+  paper.style.width = Math.max(w, paperW) + 'px';
+}
+
+// ===== CANVAS: ページ区切り =====
+let canvasRedrawT = null;
+function scheduleCanvasRedraw() {
+  clearTimeout(canvasRedrawT);
+  canvasRedrawT = setTimeout(redrawCanvas, 60);
+}
+
+function redrawCanvas() {
+  syncPaperWidth();
+  const { paperH } = computeGrid();
+  const actualW = paper.offsetWidth;
+  const actualH = paper.offsetHeight || paperH;
+
+  canvas.width  = actualW;
+  canvas.height = actualH;
+  canvas.style.width  = actualW + 'px';
+  canvas.style.height = actualH + 'px';
+
+  const computedLH = parseFloat(getComputedStyle(editor).lineHeight) || computeGrid().colW;
+  renderPageLines({ colW: computedLH, paperH: actualH, paperW: actualW });
+}
+
+function renderPageLines({ colW, paperH, paperW }) {
+  ctx.clearRect(0, 0, paperW, paperH);
+
+  const textRight = paperW - PAD_SIDE;
+  const pageTextW = S.cols * colW;
+  const textAreaW = textRight - PAD_SIDE;
+  const numPages  = Math.ceil(textAreaW / pageTextW);
+
+  for (let p = 1; p < numPages; p++) {
+    const x = textRight - p * pageTextW;
+    if (x <= PAD_SIDE) break;
+
+    // 破線のページ区切り
+    ctx.save();
+    ctx.strokeStyle = 'rgba(160,120,60,0.5)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x, PAD_TOP * 0.5);
+    ctx.lineTo(x, paperH - PAD_TOP * 0.5);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // ページ番号: 右下（区切り線の少し左）
+    ctx.save();
+    ctx.fillStyle = 'rgba(120,80,30,0.75)';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(String(p + 1), x - 6, paperH - 5);
+    ctx.restore();
+  }
+
+  // 1ページ目のページ番号: 右下（右端PAD_SIDEの少し左）
+  ctx.save();
+  ctx.fillStyle = 'rgba(120,80,30,0.75)';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('1', textRight + PAD_SIDE - 6, paperH - 5);
+  ctx.restore();
+}
+
+// ===== OVERLAY CANVAS: コメントHL, 改行記号 =====
+let overlayRedrawT = null;
+function scheduleOverlayRedraw() {
+  clearTimeout(overlayRedrawT);
+  overlayRedrawT = setTimeout(redrawOverlay, 80);
+}
+
+function redrawOverlay() {
+  const { paperH, colW: gridColW } = computeGrid();
+  const actualW = paper.offsetWidth;
+  const actualH = paper.offsetHeight || paperH;
+
+  overlay.width  = actualW;
+  overlay.height = actualH;
+  overlay.style.width  = actualW + 'px';
+  overlay.style.height = actualH + 'px';
+
+  octx.clearRect(0, 0, actualW, actualH);
+
+  const text = editor.innerText || '';
+  if (!text) return;
+
+  const fs = S.fontSize;
+  const computedLH = parseFloat(getComputedStyle(editor).lineHeight) || gridColW;
+  const paperRect = paper.getBoundingClientRect();
+
+  // charMapを一度だけ構築して両関数で共有
+  const mapped = (S.showNewline || S.commentHL) ? buildCharMap() : null;
+
+  if (S.showNewline && mapped) {
+    drawNewlineMarks(paperRect, fs, computedLH, mapped);
+  }
+  if (S.commentHL && mapped) {
+    drawCommentHighlights(paperRect, fs, computedLH, mapped);
+  }
+}
+
+/*
+ * 改行記号表示:
+ * charMapベースではなく、DOM上の改行要素（<br>, <div>境界）を
+ * 直接走査して座標を取得する方式。空行にも対応。
+ *
+ * contenteditable の改行構造:
+ *   Enter → <div>text<br></div> or テキスト<br>テキスト
+ *   空行 → <div><br></div>
+ *
+ * 方針: 各 <br> と各 <div>（editor直下、最初以外）の位置を取得し、
+ *       その位置に改行記号を描画する。
+ *       最後の暗黙の<br>（divの末尾br）は改行マーク不要な場合もあるので、
+ *       「次に兄弟ノードがない末尾br」かつ「親divが最後の子」なら除外する。
+ */
+function drawNewlineMarks(paperRect, fs, computedLH, mapped) {
+  const markSize = Math.round(fs * 0.55);
+  const range = document.createRange();
+
+  // editor直下の子を順に見て、改行位置を収集
+  const positions = [];
+
+  function getLastCharRect(node) {
+    // ノード内の最後のテキスト文字の座標を返す
+    const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+    let lastTextNode = null;
+    let tn;
+    while ((tn = walker.nextNode())) {
+      if (tn.textContent.length > 0) lastTextNode = tn;
+    }
+    if (lastTextNode) {
+      // 最後の非改行文字を探す
+      const txt = lastTextNode.textContent;
+      for (let i = txt.length - 1; i >= 0; i--) {
+        if (txt[i] !== '\n') {
+          try {
+            range.setStart(lastTextNode, i);
+            range.setEnd(lastTextNode, i + 1);
+            const r = range.getBoundingClientRect();
+            if (r.width || r.height) return r;
+          } catch(e) {}
+        }
+      }
+    }
+    return null;
+  }
+
+  function getBrRect(br) {
+    // br要素自体の座標を取得（空行用）
+    // rangeでbrを囲む
+    try {
+      range.selectNode(br);
+      const r = range.getBoundingClientRect();
+      if (r.x || r.y) return r;
+    } catch(e) {}
+    return null;
+  }
+
+  const children = Array.from(editor.childNodes);
+
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+
+    if (child.nodeType === Node.ELEMENT_NODE && child.tagName === 'BR') {
+      // editor直下の<br>: 改行位置
+      // ただし最後の子のbrは末尾なので除外
+      if (i === children.length - 1) continue;
+
+      // brの前にテキストがあればその文字の下に描画
+      const prev = child.previousSibling;
+      if (prev && prev.nodeType === Node.TEXT_NODE && prev.textContent.replace(/\n/g, '').length > 0) {
+        const r = getLastCharRect(prev);
+        if (r) {
+          positions.push({ x: r.left + r.width / 2, y: r.bottom });
+          continue;
+        }
+      }
+      // テキストがない場合（空行）: br自体の位置
+      const brR = getBrRect(child);
+      if (brR) {
+        positions.push({ x: brR.left + brR.width / 2, y: brR.top });
+      }
+
+    } else if (child.nodeType === Node.ELEMENT_NODE && (child.tagName === 'DIV' || child.tagName === 'P')) {
+      // <div> の末尾 = 改行位置（最後のdivは除外）
+      if (i === children.length - 1) continue;
+
+      // div内にテキストがあるか？
+      const innerText = child.textContent.replace(/\n/g, '');
+      if (innerText.length > 0) {
+        // 最後の文字の下に描画
+        const r = getLastCharRect(child);
+        if (r) {
+          positions.push({ x: r.left + r.width / 2, y: r.bottom });
+          continue;
+        }
+      }
+      // 空div（空行）: 中の<br>の位置を使う
+      const innerBr = child.querySelector('br');
+      if (innerBr) {
+        const brR = getBrRect(innerBr);
+        if (brR) {
+          positions.push({ x: brR.left + brR.width / 2, y: brR.top });
+          continue;
+        }
+      }
+      // それでもダメならdiv自体の位置
+      const divR = child.getBoundingClientRect();
+      if (divR.width || divR.height) {
+        positions.push({ x: divR.left + divR.width / 2, y: divR.top });
+      }
+
+    } else if (child.nodeType === Node.TEXT_NODE) {
+      // テキストノード内の \n
+      const txt = child.textContent;
+      for (let ci = 0; ci < txt.length; ci++) {
+        if (txt[ci] === '\n') {
+          if (ci > 0) {
+            // 直前の文字の下に描画
+            try {
+              range.setStart(child, ci - 1);
+              range.setEnd(child, ci);
+              const r = range.getBoundingClientRect();
+              if (r.width || r.height) {
+                positions.push({ x: r.left + r.width / 2, y: r.bottom });
+              }
+            } catch(e) {}
+          }
+        }
+      }
+    }
+  }
+
+  // 描画
+  for (const pos of positions) {
+    octx.save();
+    octx.fillStyle = 'rgba(160,120,60,0.35)';
+    octx.font = `${markSize}px "Noto Sans JP", sans-serif`;
+    octx.textAlign = 'center';
+    octx.textBaseline = 'top';
+    octx.fillText('↵',
+      pos.x - paperRect.left,
+      pos.y - paperRect.top + 1);
+    octx.restore();
+  }
+}
+
+/*
+ * コメントハイライト:
+ * DOMを直接走査して論理行（改行コード区切り）を構築し、
+ * 行頭が // で始まる行の全文字をRange APIで座標取得してハイライト。
+ * 
+ * contenteditable内の構造:
+ *   テキスト → TextNode
+ *   改行 → <br> or <div> 境界
+ * innerTextは使わず、DOM走査でcharMap（文字→テキストノード+ローカルオフセット）を構築。
+ */
+function drawCommentHighlights(paperRect, fs, computedLH, mapped) {
+  const { charMap, lineStarts } = mapped;
+  if (charMap.length === 0) return;
+
+  const range = document.createRange();
+
+  // 各論理行について、行頭が // かチェック
+  for (let li = 0; li < lineStarts.length; li++) {
+    const start = lineStarts[li];
+    const end = (li + 1 < lineStarts.length) ? lineStarts[li + 1] : charMap.length;
+    const lineLen = end - start;
+    if (lineLen < 2) continue;
+
+    // 行頭の2文字が // か？
+    const ch0 = charMap[start].node.textContent[charMap[start].localIdx];
+    const ch1 = charMap[start + 1].node.textContent[charMap[start + 1].localIdx];
+    if (ch0 !== '/' || ch1 !== '/') continue;
+
+    // この行の全文字をハイライト
+    for (let i = start; i < end; i++) {
+      const entry = charMap[i];
+      try {
+        range.setStart(entry.node, entry.localIdx);
+        range.setEnd(entry.node, entry.localIdx + 1);
+        const rect = range.getBoundingClientRect();
+        if (rect.width || rect.height) {
+          octx.save();
+          octx.fillStyle = 'rgba(80,200,80,0.15)';
+          octx.fillRect(
+            rect.left - paperRect.left,
+            rect.top - paperRect.top,
+            rect.width,
+            rect.height
+          );
+          octx.restore();
+        }
+      } catch(e) {}
+    }
+  }
+}
+
+/*
+ * editor内のDOMを走査して、文字単位のマップと論理行の開始位置を返す。
+ * contenteditable の構造:
+ *   初回入力: 直下にTextNode（+ 末尾<br>）
+ *   Enter後:  <div>TextNode<br></div> が並ぶ
+ * <div>の開始 = 新しい論理行の開始
+ * <br> = 改行（次が新しい論理行）
+ * テキストノード内の \n も改行扱い
+ */
+function buildCharMap() {
+  const charMap = [];   // [{node: TextNode, localIdx: number}, ...]
+  const lineStarts = [0]; // charMapインデックスで論理行の先頭
+  let needNewLine = false;
+
+  function walk(el) {
+    for (const child of el.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        const txt = child.textContent;
+        for (let i = 0; i < txt.length; i++) {
+          if (txt[i] === '\n') {
+            // テキストノード内の改行 → 新しい論理行
+            needNewLine = true;
+            continue;
+          }
+          if (needNewLine) {
+            lineStarts.push(charMap.length);
+            needNewLine = false;
+          }
+          charMap.push({ node: child, localIdx: i });
+        }
+      } else if (child.nodeType === Node.ELEMENT_NODE) {
+        if (child.tagName === 'BR') {
+          needNewLine = true;
+        } else if (child.tagName === 'DIV' || child.tagName === 'P') {
+          // ブロック要素 = 新しい論理行
+          needNewLine = true;
+          walk(child);
+          continue;
+        } else {
+          walk(child);
+          continue;
+        }
+      }
+    }
+  }
+
+  walk(editor);
+  return { charMap, lineStarts };
+}
+
+new ResizeObserver(() => {
+  scheduleCanvasRedraw();
+  scheduleOverlayRedraw();
+}).observe(paper);
+
+// ===== SETTINGS =====
+function toggleSettings() {
+  const p = document.getElementById('settings-panel');
+  const b = document.getElementById('btn-settings');
+  p.classList.toggle('open');
+  b.classList.toggle('active', p.classList.contains('open'));
+}
+
+function toggleOpt(key) {
+  S[key] = !S[key];
+  syncToggles();
+  saveCfg();
+  applyAll();
+}
+
+function syncToggles() {
+  document.getElementById('tog-comment').classList.toggle('on', S.commentHL);
+  document.getElementById('tog-newline').classList.toggle('on', S.showNewline);
+}
+
+function syncUI() {
+  document.getElementById('in-fontsize').value = S.fontSize;
+  document.getElementById('in-rows').value     = S.rows;
+  document.getElementById('in-cols').value     = S.cols;
+  const cpp = S.rows * S.cols;
+  document.getElementById('chars-per-page').textContent = `1頁 ${cpp}字`;
+  document.getElementById('grid-info').textContent = `${S.rows}×${S.cols}`;
+  syncToggles();
+}
+
+const LIMITS = { fontSize:[10,36], rows:[5,60], cols:[3,40] };
+function adjustVal(key, d) { setVal(key, S[key] + d, ...LIMITS[key]); }
+function setVal(key, raw, min, max) {
+  S[key] = Math.min(max, Math.max(min, parseInt(raw) || S[key]));
+  syncUI(); applyAll(); saveCfg();
+  if (key === 'rows') showToast(`縦 ${S.rows} 行 / ページ`);
+  if (key === 'cols') showToast(`横 ${S.cols} 列 / ページ`);
+}
+
+function saveCfg() {
+  localStorage.setItem('tg_cfg', JSON.stringify({
+    fontSize: S.fontSize, rows: S.rows, cols: S.cols,
+    commentHL: S.commentHL, showNewline: S.showNewline,
+  }));
+}
+
+// ===== INPUT =====
+function onInput() {
+  pushUndo();
+  updateSaveStatus();
+  updateStats();
+  requestAnimationFrame(() => {
+    syncPaperWidth();
+    scheduleCanvasRedraw();
+    scheduleOverlayRedraw();
+  });
+  clearTimeout(autoSaveT);
+  autoSaveT = setTimeout(autosave, 1800);
+}
+
+function onKeyDown(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    document.execCommand('insertText', false, '　');
+  }
+}
+
+function updateStats() {
+  const text  = editor.innerText || '';
+  const chars = text.replace(/\n/g, '').length;
+  const cpp   = S.rows * S.cols;
+  const pages = Math.max(1, Math.ceil(chars / cpp));
+  document.getElementById('char-count').textContent = chars;
+  document.getElementById('page-count').textContent = pages;
+  document.getElementById('chars-per-page').textContent = `1頁 ${cpp}字`;
+}
+
+function updateSaveStatus() {
+  const ss = document.getElementById('save-status');
+  if (S.saveOk === 'ok') {
+    ss.textContent = '保存済'; ss.style.color = '#c9a84ccc';
+  } else if (S.dirty) {
+    ss.textContent = '未保存'; ss.style.color = '#c0392b99';
+  } else {
+    ss.textContent = '保存済'; ss.style.color = '#c9a84ccc';
+  }
+  const saveBtn = document.getElementById('btn-save');
+  saveBtn.style.color = fileHandle ? '#c9a84ccc' : '#c9a84c55';
+  saveBtn.title = fileHandle ? `上書き保存: ${S.currentFile} (Ctrl+S)` : '上書き保存（まず別名保存してください）';
+}
+
+function autosave() {
+  localStorage.setItem('tg_last', JSON.stringify({ title: S.currentFile, content: editor.innerText || '' }));
+}
+
+// ===== SAVE =====
+async function saveOverwrite() {
+  const text = editor.innerText || '';
+  if (hasFS && fileHandle) {
+    try {
+      const writable = await fileHandle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      S.dirty = false; S.saveOk = 'ok';
+      autosave(); updateSaveStatus();
+      showToast('上書き保存しました');
+      setTimeout(() => { S.saveOk = null; updateSaveStatus(); }, 2000);
+      return;
+    } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  await saveAs();
+}
+
+async function saveAs() {
+  const text = editor.innerText || '';
+  const safeName = (S.currentFile || '無題').replace(/[\\/:*?"<>|]/g, '_');
+  if (hasFS) {
+    try {
+      fileHandle = await window.showSaveFilePicker({
+        suggestedName: safeName + '.txt',
+        types: [{ description: 'テキストファイル', accept: { 'text/plain': ['.txt'] } }],
+      });
+      const fileName = fileHandle.name || safeName + '.txt';
+      S.currentFile = fileName.replace(/\.txt$/i, '');
+      document.getElementById('toolbar-title').textContent = S.currentFile;
+      const writable = await fileHandle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      S.dirty = false; S.saveOk = 'ok';
+      autosave(); updateSaveStatus();
+      showToast('「' + S.currentFile + '」を保存しました');
+      setTimeout(() => { S.saveOk = null; updateSaveStatus(); }, 2000);
+      return;
+    } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  showModal('ファイル名を入力', S.currentFile, (title) => {
+    if (!title) return;
+    S.currentFile = title;
+    document.getElementById('toolbar-title').textContent = title;
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = title + '.txt';
+    a.style.cssText = 'position:fixed;left:-9999px';
+    document.body.appendChild(a);
+    setTimeout(() => { a.click(); setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 500); }, 0);
+    fileHandle = null; S.dirty = false; S.saveOk = 'ok';
+    autosave(); updateSaveStatus();
+    showToast('「' + title + '」を保存しました');
+    setTimeout(() => { S.saveOk = null; updateSaveStatus(); }, 2000);
+  });
+}
+
+// ===== OPEN =====
+async function openDoc() {
+  if (S.dirty && (editor.innerText || '').trim()) {
+    if (!confirm('未保存の変更があります。破棄して開きますか？')) return;
+  }
+  if (hasFS) {
+    try {
+      const [fh] = await window.showOpenFilePicker({
+        types: [{ description: 'テキストファイル', accept: { 'text/plain': ['.txt', '.md'] } }],
+        multiple: false,
+      });
+      const file = await fh.getFile();
+      const text = await file.text();
+      pushUndo(); editor.innerText = text;
+      S.currentFile = file.name.replace(/\.[^.]+$/, '');
+      document.getElementById('toolbar-title').textContent = S.currentFile;
+      fileHandle = fh; S.dirty = false;
+      applyAll(); updateStats(); updateSaveStatus();
+      showToast('「' + S.currentFile + '」を開きました');
+      return;
+    } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.txt,.md';
+  inp.style.cssText = 'position:fixed;left:-9999px';
+  document.body.appendChild(inp);
+  inp.onchange = (e) => {
+    const f = e.target.files[0];
+    if (!f) { cleanup(); return; }
+    const r = new FileReader();
+    r.onload = (ev) => {
+      pushUndo(); editor.innerText = ev.target.result;
+      S.currentFile = f.name.replace(/\.[^.]+$/, '');
+      document.getElementById('toolbar-title').textContent = S.currentFile;
+      fileHandle = null; S.dirty = false;
+      applyAll(); updateStats(); updateSaveStatus();
+      showToast('「' + S.currentFile + '」を開きました');
+      cleanup();
+    };
+    r.onerror = () => { alert('読み込みに失敗しました'); cleanup(); };
+    r.readAsText(f, 'UTF-8');
+  };
+  function cleanup() { try { document.body.removeChild(inp); } catch {} }
+  setTimeout(() => inp.click(), 0);
+}
+
+// ===== NEW =====
+function newDoc() {
+  if (S.dirty && (editor.innerText || '').trim()) {
+    if (!confirm('未保存の変更があります。新規作成しますか？')) return;
+  }
+  pushUndo(); editor.innerText = '';
+  S.currentFile = '無題'; fileHandle = null;
+  document.getElementById('toolbar-title').textContent = '無題';
+  S.dirty = false; undoStack = []; redoStack = [];
+  applyAll(); updateStats(); updateUndoButtons(); updateSaveStatus();
+  showToast('新規文書を作成しました');
+}
+
+// ===== MODAL =====
+function showModal(title, def, cb) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-input').value = def || '';
+  modalCb = cb;
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('modal-input').focus(), 80);
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); modalCb = null; }
+function confirmModal() { const v = document.getElementById('modal-input').value.trim(); closeModal(); if (modalCb) modalCb(v); }
+document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target.id === 'modal-overlay') closeModal(); });
+document.getElementById('modal-input').addEventListener('keydown', e => { if (e.key === 'Enter') confirmModal(); if (e.key === 'Escape') closeModal(); });
+
+// ===== WHEEL =====
+scroller.addEventListener('wheel', e => {
+  if (e.shiftKey) return;
+  e.preventDefault();
+  scroller.scrollLeft -= e.deltaY;
+}, { passive: false });
+
+// ===== TOAST =====
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1900);
+}
+
+// ===== INIT =====
+function init() {
+  try {
+    const cfg = localStorage.getItem('tg_cfg');
+    if (cfg) {
+      const c = JSON.parse(cfg);
+      ['fontSize','rows','cols','commentHL','showNewline'].forEach(k => {
+        if (c[k] !== undefined) S[k] = c[k];
+      });
+    }
+    const last = localStorage.getItem('tg_last');
+    if (last) {
+      const d = JSON.parse(last);
+      editor.innerText = d.content || '';
+      S.currentFile = d.title || '無題';
+    }
+  } catch(e) {}
+
+  applyAll();
+  syncUI();
+  updateUndoButtons();
+  updateSaveStatus();
+  document.getElementById('toolbar-title').textContent = S.currentFile;
+  setTimeout(() => { scroller.scrollLeft = 0; }, 60);
+}
+
+init();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
