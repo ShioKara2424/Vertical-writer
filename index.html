@@ -173,7 +173,7 @@
   .toggle.on::after { transform: translateX(20px); background: var(--vermillion); }
   .toggle-text { font-size: 11px; font-family: 'Noto Sans JP', sans-serif; color: #c9a84c66; }
   .toggle.on ~ .toggle-text { color: #c0392b; }
-  .chars-per-page { margin-left: auto; font-size: 11px; font-family: 'Noto Sans JP', sans-serif; color: #c9a84c55; }
+  .chars-per-page { font-size: 11px; font-family: 'Noto Sans JP', sans-serif; color: #c9a84c55; }
   .setting-sep {
     border: none; border-top: 1px solid #c9a84c22; margin: 8px 0;
   }
@@ -309,7 +309,7 @@
   <div class="setting-row">
     <div class="setting-label">1頁の文字数</div>
     <div class="setting-controls">
-      <span class="chars-per-page" id="chars-per-page" style="color:#c9a84c99;font-size:13px;">200字</span>
+      <span class="chars-per-page" id="chars-per-page" style="color:#c9a84c99;font-size:13px;margin-left:0;">200字</span>
     </div>
   </div>
   <hr class="setting-sep">
@@ -326,6 +326,9 @@
       <div class="toggle" id="tog-newline" onclick="toggleOpt('showNewline')"></div>
       <span class="toggle-text">↵ 表示</span>
     </div>
+  </div>
+  <div style="text-align:right;margin-top:8px;">
+    <span id="version-label" style="color:#c9a84c44;font-size:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.05em;">v.1.0.0</span>
   </div>
 </div>
 
