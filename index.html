@@ -328,7 +328,7 @@
     </div>
   </div>
   <div style="text-align:right;margin-top:8px;">
-    <span id="version-label" style="color:#c9a84c44;font-size:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.05em;">v.1.0.0</span>
+    <span id="version-label" style="color:#c9a84c;font-size:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.05em;">v.1.0.3</span>
   </div>
 </div>
 
@@ -443,25 +443,37 @@ function pushUndo() {
 }
 function doUndo() {
   if (!undoStack.length) return;
+  isRestoring = true;
   redoStack.push(snapshot());
   const prev = JSON.parse(undoStack.pop());
   editor.innerText = prev.content || '';
   S.currentFile = prev.title || '無題';
   document.getElementById('toolbar-title').textContent = S.currentFile;
   if (prev.caret !== undefined) {
-    requestAnimationFrame(() => setCaretOffset(prev.caret));
+    requestAnimationFrame(() => {
+      setCaretOffset(prev.caret);
+      isRestoring = false;
+    });
+  } else {
+    requestAnimationFrame(() => { isRestoring = false; });
   }
   updateStats(); updateUndoButtons(); updateSaveStatus(); applyAll();
 }
 function doRedo() {
   if (!redoStack.length) return;
+  isRestoring = true;
   undoStack.push(snapshot());
   const next = JSON.parse(redoStack.pop());
   editor.innerText = next.content || '';
   S.currentFile = next.title || '無題';
   document.getElementById('toolbar-title').textContent = S.currentFile;
   if (next.caret !== undefined) {
-    requestAnimationFrame(() => setCaretOffset(next.caret));
+    requestAnimationFrame(() => {
+      setCaretOffset(next.caret);
+      isRestoring = false;
+    });
+  } else {
+    requestAnimationFrame(() => { isRestoring = false; });
   }
   updateStats(); updateUndoButtons(); updateSaveStatus(); applyAll();
 }
@@ -937,8 +949,33 @@ function saveCfg() {
 }
 
 // ===== INPUT =====
+let isComposing = false;   // IME変換中フラグ
+let isRestoring = false;   // undo/redo復元中フラグ
+let undoDebounceT = null;
+
+editor.addEventListener('compositionstart', () => { isComposing = true; });
+editor.addEventListener('compositionend', () => {
+  isComposing = false;
+  // 変換確定時にスナップショットを取る
+  debouncedPushUndo();
+});
+
+function debouncedPushUndo() {
+  clearTimeout(undoDebounceT);
+  undoDebounceT = setTimeout(() => {
+    pushUndo();
+  }, 300);
+}
+
 function onInput() {
-  pushUndo();
+  // undo/redo復元中のinput再発火を無視
+  if (isRestoring) return;
+
+  // IME変換中はスナップショットを取らない（確定時に取る）
+  if (!isComposing) {
+    debouncedPushUndo();
+  }
+
   updateSaveStatus();
   updateStats();
   requestAnimationFrame(() => {
@@ -1156,6 +1193,24 @@ function init() {
 }
 
 init();
+
+// ===== FILE HANDLER: 「アプリで開く」対応 =====
+if ('launchQueue' in window) {
+  window.launchQueue.setConsumer(async (launchParams) => {
+    if (!launchParams.files || !launchParams.files.length) return;
+    const fh = launchParams.files[0];
+    const file = await fh.getFile();
+    const text = await file.text();
+    pushUndo();
+    editor.innerText = text;
+    S.currentFile = file.name.replace(/\.[^.]+$/, '') || '無題';
+    document.getElementById('toolbar-title').textContent = S.currentFile;
+    fileHandle = fh;
+    S.dirty = false;
+    applyAll(); updateStats(); updateSaveStatus();
+    showToast('「' + S.currentFile + '」を開きました');
+  });
+}
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
