@@ -328,7 +328,7 @@
     </div>
   </div>
   <div style="text-align:right;margin-top:8px;">
-    <span id="version-label" style="color:#c9a84c;font-size:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.05em;">v.1.0.3</span>
+    <span id="version-label" style="color:#c9a84c;font-size:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.05em;">v.1.0.4</span>
   </div>
 </div>
 
@@ -384,110 +384,27 @@ const S = {
 let fileHandle = null;
 let modalCb = null, autoSaveT = null;
 
-// ===== UNDO / REDO =====
-const UNDO_MAX = 80;
-let undoStack = [], redoStack = [];
+// ===== UNDO / REDO (ブラウザ標準) =====
+function doUndo() { document.execCommand('undo'); }
+function doRedo() { document.execCommand('redo'); }
 
-function getCaretOffset() {
+// テキスト全体を置換（ブラウザのundo履歴に載せる）
+function replaceAllText(text) {
+  editor.focus();
+  // 全選択してexecCommandで置換 → ブラウザのundo履歴に残る
   const sel = window.getSelection();
-  if (!sel.rangeCount) return 0;
-  const range = sel.getRangeAt(0).cloneRange();
+  const range = document.createRange();
   range.selectNodeContents(editor);
-  range.setEnd(sel.getRangeAt(0).startContainer, sel.getRangeAt(0).startOffset);
-  return range.toString().length;
-}
-
-function setCaretOffset(offset) {
-  const sel = window.getSelection();
-  // テキストノードを走査してoffset位置を探す
-  let remaining = offset;
-  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
-  let node;
-  while ((node = walker.nextNode())) {
-    const len = node.textContent.length;
-    if (remaining <= len) {
-      try {
-        const range = document.createRange();
-        range.setStart(node, remaining);
-        range.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(range);
-      } catch(e) {}
-      return;
-    }
-    remaining -= len;
-  }
-  // offsetがテキスト末尾を超えていたら末尾にセット
-  try {
-    const range = document.createRange();
-    range.selectNodeContents(editor);
-    range.collapse(false);
-    sel.removeAllRanges();
-    sel.addRange(range);
-  } catch(e) {}
-}
-
-function snapshot() {
-  return JSON.stringify({
-    content: editor.innerText || '',
-    title: S.currentFile,
-    caret: getCaretOffset(),
-  });
-}
-function pushUndo() {
-  undoStack.push(snapshot());
-  if (undoStack.length > UNDO_MAX) undoStack.shift();
-  redoStack = [];
-  S.dirty = true;
-  updateUndoButtons();
-}
-function doUndo() {
-  if (!undoStack.length) return;
-  isRestoring = true;
-  redoStack.push(snapshot());
-  const prev = JSON.parse(undoStack.pop());
-  editor.innerText = prev.content || '';
-  S.currentFile = prev.title || '無題';
-  document.getElementById('toolbar-title').textContent = S.currentFile;
-  if (prev.caret !== undefined) {
-    requestAnimationFrame(() => {
-      setCaretOffset(prev.caret);
-      isRestoring = false;
-    });
-  } else {
-    requestAnimationFrame(() => { isRestoring = false; });
-  }
-  updateStats(); updateUndoButtons(); updateSaveStatus(); applyAll();
-}
-function doRedo() {
-  if (!redoStack.length) return;
-  isRestoring = true;
-  undoStack.push(snapshot());
-  const next = JSON.parse(redoStack.pop());
-  editor.innerText = next.content || '';
-  S.currentFile = next.title || '無題';
-  document.getElementById('toolbar-title').textContent = S.currentFile;
-  if (next.caret !== undefined) {
-    requestAnimationFrame(() => {
-      setCaretOffset(next.caret);
-      isRestoring = false;
-    });
-  } else {
-    requestAnimationFrame(() => { isRestoring = false; });
-  }
-  updateStats(); updateUndoButtons(); updateSaveStatus(); applyAll();
-}
-function updateUndoButtons() {
-  document.getElementById('btn-undo').classList.toggle('disabled', !undoStack.length);
-  document.getElementById('btn-redo').classList.toggle('disabled', !redoStack.length);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  document.execCommand('insertText', false, text);
 }
 
 // ===== KEYBOARD SHORTCUTS =====
 window.addEventListener('keydown', e => {
   const mod = e.ctrlKey || e.metaKey;
   if (!mod) return;
-  if (e.key === 'z') { e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); }
-  if (e.key === 'y') { e.preventDefault(); doRedo(); }
+  // undo/redo はブラウザ標準に任せる（interceptしない）
   if (e.key === 's') { e.preventDefault(); if (e.shiftKey) saveAs(); else saveOverwrite(); }
 });
 
@@ -949,33 +866,8 @@ function saveCfg() {
 }
 
 // ===== INPUT =====
-let isComposing = false;   // IME変換中フラグ
-let isRestoring = false;   // undo/redo復元中フラグ
-let undoDebounceT = null;
-
-editor.addEventListener('compositionstart', () => { isComposing = true; });
-editor.addEventListener('compositionend', () => {
-  isComposing = false;
-  // 変換確定時にスナップショットを取る
-  debouncedPushUndo();
-});
-
-function debouncedPushUndo() {
-  clearTimeout(undoDebounceT);
-  undoDebounceT = setTimeout(() => {
-    pushUndo();
-  }, 300);
-}
-
 function onInput() {
-  // undo/redo復元中のinput再発火を無視
-  if (isRestoring) return;
-
-  // IME変換中はスナップショットを取らない（確定時に取る）
-  if (!isComposing) {
-    debouncedPushUndo();
-  }
-
+  S.dirty = true;
   updateSaveStatus();
   updateStats();
   requestAnimationFrame(() => {
@@ -1093,7 +985,7 @@ async function openDoc() {
       });
       const file = await fh.getFile();
       const text = await file.text();
-      pushUndo(); editor.innerText = text;
+      replaceAllText(text);
       S.currentFile = file.name.replace(/\.[^.]+$/, '');
       document.getElementById('toolbar-title').textContent = S.currentFile;
       fileHandle = fh; S.dirty = false;
@@ -1111,7 +1003,7 @@ async function openDoc() {
     if (!f) { cleanup(); return; }
     const r = new FileReader();
     r.onload = (ev) => {
-      pushUndo(); editor.innerText = ev.target.result;
+      replaceAllText(ev.target.result);
       S.currentFile = f.name.replace(/\.[^.]+$/, '');
       document.getElementById('toolbar-title').textContent = S.currentFile;
       fileHandle = null; S.dirty = false;
@@ -1131,11 +1023,11 @@ function newDoc() {
   if (S.dirty && (editor.innerText || '').trim()) {
     if (!confirm('未保存の変更があります。新規作成しますか？')) return;
   }
-  pushUndo(); editor.innerText = '';
+  replaceAllText('');
   S.currentFile = '無題'; fileHandle = null;
   document.getElementById('toolbar-title').textContent = '無題';
-  S.dirty = false; undoStack = []; redoStack = [];
-  applyAll(); updateStats(); updateUndoButtons(); updateSaveStatus();
+  S.dirty = false;
+  applyAll(); updateStats(); updateSaveStatus();
   showToast('新規文書を作成しました');
 }
 
@@ -1186,7 +1078,6 @@ function init() {
 
   applyAll();
   syncUI();
-  updateUndoButtons();
   updateSaveStatus();
   document.getElementById('toolbar-title').textContent = S.currentFile;
   setTimeout(() => { scroller.scrollLeft = 0; }, 60);
@@ -1201,8 +1092,7 @@ if ('launchQueue' in window) {
     const fh = launchParams.files[0];
     const file = await fh.getFile();
     const text = await file.text();
-    pushUndo();
-    editor.innerText = text;
+    replaceAllText(text);
     S.currentFile = file.name.replace(/\.[^.]+$/, '') || '無題';
     document.getElementById('toolbar-title').textContent = S.currentFile;
     fileHandle = fh;
