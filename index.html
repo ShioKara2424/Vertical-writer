@@ -328,7 +328,7 @@
     </div>
   </div>
   <div style="text-align:right;margin-top:8px;">
-    <span id="version-label" style="color:#c9a84c;font-size:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.05em;">v.1.0.4</span>
+    <span id="version-label" style="color:#c9a84c;font-size:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.05em;">v.1.0.5</span>
   </div>
 </div>
 
@@ -388,16 +388,25 @@ let modalCb = null, autoSaveT = null;
 function doUndo() { document.execCommand('undo'); }
 function doRedo() { document.execCommand('redo'); }
 
-// テキスト全体を置換（ブラウザのundo履歴に載せる）
+// テキスト全体を置換
+// DOM構築方式で改行を正しく<div>構造にする
 function replaceAllText(text) {
-  editor.focus();
-  // 全選択してexecCommandで置換 → ブラウザのundo履歴に残る
-  const sel = window.getSelection();
-  const range = document.createRange();
-  range.selectNodeContents(editor);
-  sel.removeAllRanges();
-  sel.addRange(range);
-  document.execCommand('insertText', false, text);
+  editor.innerHTML = '';
+  if (!text) return;
+  const lines = text.split('\n');
+  lines.forEach((line, i) => {
+    if (i === 0) {
+      editor.appendChild(document.createTextNode(line));
+    } else {
+      const div = document.createElement('div');
+      if (line === '') {
+        div.appendChild(document.createElement('br'));
+      } else {
+        div.appendChild(document.createTextNode(line));
+      }
+      editor.appendChild(div);
+    }
+  });
 }
 
 // ===== KEYBOARD SHORTCUTS =====
@@ -549,7 +558,7 @@ function redrawOverlay() {
 
   octx.clearRect(0, 0, actualW, actualH);
 
-  const text = editor.innerText || '';
+  const text = getCleanText();
   if (!text) return;
 
   const fs = S.fontSize;
@@ -887,7 +896,7 @@ function onKeyDown(e) {
 }
 
 function updateStats() {
-  const text  = editor.innerText || '';
+  const text  = getCleanText();
   const chars = text.replace(/\n/g, '').length;
   const cpp   = S.rows * S.cols;
   const pages = Math.max(1, Math.ceil(chars / cpp));
@@ -911,12 +920,17 @@ function updateSaveStatus() {
 }
 
 function autosave() {
-  localStorage.setItem('tg_last', JSON.stringify({ title: S.currentFile, content: editor.innerText || '' }));
+  localStorage.setItem('tg_last', JSON.stringify({ title: S.currentFile, content: getCleanText() }));
+}
+
+// innerTextから正規化されたテキストを取得（末尾の余計な改行を除去）
+function getCleanText() {
+  return (editor.innerText || '').replace(/\n$/, '');
 }
 
 // ===== SAVE =====
 async function saveOverwrite() {
-  const text = editor.innerText || '';
+  const text = getCleanText();
   if (hasFS && fileHandle) {
     try {
       const writable = await fileHandle.createWritable();
@@ -933,7 +947,7 @@ async function saveOverwrite() {
 }
 
 async function saveAs() {
-  const text = editor.innerText || '';
+  const text = getCleanText();
   const safeName = (S.currentFile || '無題').replace(/[\\/:*?"<>|]/g, '_');
   if (hasFS) {
     try {
@@ -1071,8 +1085,29 @@ function init() {
     const last = localStorage.getItem('tg_last');
     if (last) {
       const d = JSON.parse(last);
-      editor.innerText = d.content || '';
+      const content = d.content || '';
       S.currentFile = d.title || '無題';
+      // innerTextではなくDOM構築で復元（改行重複を防ぐ）
+      editor.innerHTML = '';
+      if (content) {
+        const lines = content.split('\n');
+        lines.forEach((line, i) => {
+          if (i === 0 && lines.length === 1) {
+            // 1行だけの場合はテキストノードのみ
+            editor.appendChild(document.createTextNode(line));
+          } else if (i === 0) {
+            editor.appendChild(document.createTextNode(line));
+          } else {
+            const div = document.createElement('div');
+            if (line === '') {
+              div.appendChild(document.createElement('br'));
+            } else {
+              div.appendChild(document.createTextNode(line));
+            }
+            editor.appendChild(div);
+          }
+        });
+      }
     }
   } catch(e) {}
 
