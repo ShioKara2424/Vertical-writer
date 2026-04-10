@@ -65,7 +65,7 @@
 
   #scroll-container {
     width: 100%; height: 100%;
-    overflow-x: auto; overflow-y: hidden;
+    overflow-x: scroll; overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     direction: rtl;
     padding: 16px 20px;
@@ -213,8 +213,14 @@
   }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  #scroll-container::-webkit-scrollbar { height: 3px; }
-  #scroll-container::-webkit-scrollbar-thumb { background: #c9a84c55; border-radius: 2px; }
+  /* スクロールバー（横） */
+  #scroll-container::-webkit-scrollbar { height: 6px; }
+  #scroll-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.08); border-radius: 3px; }
+  #scroll-container::-webkit-scrollbar-thumb { background: #c9a84c88; border-radius: 3px; min-width: 40px; }
+  #scroll-container::-webkit-scrollbar-thumb:hover { background: #c9a84cbb; }
+  #scroll-container::-webkit-scrollbar-thumb:active { background: var(--gold); }
+  /* Firefox */
+  #scroll-container { scrollbar-width: thin; scrollbar-color: #c9a84c88 rgba(0,0,0,0.08); }
   @keyframes fadeIn { from{opacity:0} to{opacity:1} }
   #paper { animation: fadeIn 0.35s ease; }
 </style>
@@ -328,14 +334,12 @@
     </div>
   </div>
   <div style="text-align:right;margin-top:8px;">
-    <span id="version-label" style="color:#c9a84c;font-size:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.05em;">v.1.0.5</span>
+    <span id="version-label" style="color:#c9a84c;font-size:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.05em;">v.1.0.8</span>
   </div>
 </div>
 
 <div id="statusbar">
   <div class="status-item">文字数 <span id="char-count">0</span></div>
-  <div class="status-sep">｜</div>
-  <div class="status-item">ページ <span id="page-count">1</span></div>
   <div class="status-sep">｜</div>
   <div class="status-item">行×列 <span id="grid-info">20×10</span></div>
   <div class="status-sep">｜</div>
@@ -899,9 +903,7 @@ function updateStats() {
   const text  = getCleanText();
   const chars = text.replace(/\n/g, '').length;
   const cpp   = S.rows * S.cols;
-  const pages = Math.max(1, Math.ceil(chars / cpp));
   document.getElementById('char-count').textContent = chars;
-  document.getElementById('page-count').textContent = pages;
   document.getElementById('chars-per-page').textContent = `1頁 ${cpp}字`;
 }
 
@@ -923,9 +925,35 @@ function autosave() {
   localStorage.setItem('tg_last', JSON.stringify({ title: S.currentFile, content: getCleanText() }));
 }
 
-// innerTextから正規化されたテキストを取得（末尾の余計な改行を除去）
+// DOMを走査してテキストを取得（innerTextの改行重複問題を回避）
 function getCleanText() {
-  return (editor.innerText || '').replace(/\n$/, '');
+  const lines = [];
+  const children = editor.childNodes;
+
+  if (children.length === 0) return '';
+
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    if (child.nodeType === Node.TEXT_NODE) {
+      // 直下のテキストノード（通常は最初の行）
+      lines.push(child.textContent);
+    } else if (child.nodeType === Node.ELEMENT_NODE) {
+      if (child.tagName === 'DIV' || child.tagName === 'P') {
+        // <div>内がbrのみ → 空行
+        // <div>内にテキストあり → その行
+        const txt = child.textContent;
+        if (txt === '' || (child.childNodes.length === 1 && child.firstChild.nodeName === 'BR')) {
+          lines.push('');
+        } else {
+          lines.push(txt);
+        }
+      } else if (child.tagName === 'BR') {
+        lines.push('');
+      }
+    }
+  }
+
+  return lines.join('\n');
 }
 
 // ===== SAVE =====
@@ -988,7 +1016,7 @@ async function saveAs() {
 
 // ===== OPEN =====
 async function openDoc() {
-  if (S.dirty && (editor.innerText || '').trim()) {
+  if (S.dirty && getCleanText().trim()) {
     if (!confirm('未保存の変更があります。破棄して開きますか？')) return;
   }
   if (hasFS) {
@@ -1034,7 +1062,7 @@ async function openDoc() {
 
 // ===== NEW =====
 function newDoc() {
-  if (S.dirty && (editor.innerText || '').trim()) {
+  if (S.dirty && getCleanText().trim()) {
     if (!confirm('未保存の変更があります。新規作成しますか？')) return;
   }
   replaceAllText('');
