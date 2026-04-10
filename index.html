@@ -64,11 +64,11 @@
   #paper-wrap { flex: 1; overflow: hidden; background: #c8b89a; position: relative; }
 
   #scroll-container {
-    width: 100%; height: 100%;
+    width: 100%; height: calc(100% - 10px);
     overflow-x: scroll; overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     direction: rtl;
-    padding: 16px 20px;
+    padding: 16px 20px 0 20px;
   }
 
   #paper {
@@ -213,14 +213,24 @@
   }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  /* スクロールバー（横） */
-  #scroll-container::-webkit-scrollbar { height: 6px; }
-  #scroll-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.08); border-radius: 3px; }
-  #scroll-container::-webkit-scrollbar-thumb { background: #c9a84c88; border-radius: 3px; min-width: 40px; }
-  #scroll-container::-webkit-scrollbar-thumb:hover { background: #c9a84cbb; }
-  #scroll-container::-webkit-scrollbar-thumb:active { background: var(--gold); }
-  /* Firefox */
-  #scroll-container { scrollbar-width: thin; scrollbar-color: #c9a84c88 rgba(0,0,0,0.08); }
+  /* ネイティブスクロールバーを非表示 */
+  #scroll-container::-webkit-scrollbar { display: none; }
+  #scroll-container { scrollbar-width: none; -ms-overflow-style: none; }
+
+  /* カスタムスクロールバー */
+  #custom-scrollbar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 10px; background: rgba(0,0,0,0.06);
+    z-index: 15; cursor: pointer;
+  }
+  #scrollbar-thumb {
+    position: absolute; top: 2px; height: 6px;
+    min-width: 30px; border-radius: 3px;
+    background: #c9a84c77;
+    cursor: grab; transition: background 0.15s;
+  }
+  #scrollbar-thumb:hover { background: #c9a84caa; }
+  #scrollbar-thumb:active, #scrollbar-thumb.dragging { background: var(--gold); cursor: grabbing; }
   @keyframes fadeIn { from{opacity:0} to{opacity:1} }
   #paper { animation: fadeIn 0.35s ease; }
 </style>
@@ -279,6 +289,7 @@
            onkeydown="onKeyDown(event)"></div>
     </div>
   </div>
+  <div id="custom-scrollbar"><div id="scrollbar-thumb"></div></div>
 </div>
 
 <div id="settings-panel">
@@ -334,7 +345,7 @@
     </div>
   </div>
   <div style="text-align:right;margin-top:8px;">
-    <span id="version-label" style="color:#c9a84c;font-size:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.05em;">v.1.0.8</span>
+    <span id="version-label" style="color:#c9a84c;font-size:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.05em;">v.1.1.1</span>
   </div>
 </div>
 
@@ -547,7 +558,7 @@ function renderPageLines({ colW, paperH, paperW }) {
 let overlayRedrawT = null;
 function scheduleOverlayRedraw() {
   clearTimeout(overlayRedrawT);
-  overlayRedrawT = setTimeout(redrawOverlay, 80);
+  overlayRedrawT = setTimeout(redrawOverlay, 30);
 }
 
 function redrawOverlay() {
@@ -727,14 +738,9 @@ function drawNewlineMarks(paperRect, fs, computedLH, mapped) {
 }
 
 /*
- * コメントハイライト:
- * DOMを直接走査して論理行（改行コード区切り）を構築し、
- * 行頭が // で始まる行の全文字をRange APIで座標取得してハイライト。
- * 
- * contenteditable内の構造:
- *   テキスト → TextNode
- *   改行 → <br> or <div> 境界
- * innerTextは使わず、DOM走査でcharMap（文字→テキストノード+ローカルオフセット）を構築。
+ * コメントハイライト（軽量版）:
+ * 行頭が // の行について、先頭文字と末尾文字の座標だけ取得し、
+ * 列単位の矩形で塗る。Range API呼び出しは行あたり2回のみ。
  */
 function drawCommentHighlights(paperRect, fs, computedLH, mapped) {
   const { charMap, lineStarts } = mapped;
@@ -742,38 +748,46 @@ function drawCommentHighlights(paperRect, fs, computedLH, mapped) {
 
   const range = document.createRange();
 
-  // 各論理行について、行頭が // かチェック
   for (let li = 0; li < lineStarts.length; li++) {
     const start = lineStarts[li];
     const end = (li + 1 < lineStarts.length) ? lineStarts[li + 1] : charMap.length;
     const lineLen = end - start;
     if (lineLen < 2) continue;
 
-    // 行頭の2文字が // か？
     const ch0 = charMap[start].node.textContent[charMap[start].localIdx];
     const ch1 = charMap[start + 1].node.textContent[charMap[start + 1].localIdx];
     if (ch0 !== '/' || ch1 !== '/') continue;
 
-    // この行の全文字をハイライト
-    for (let i = start; i < end; i++) {
-      const entry = charMap[i];
-      try {
-        range.setStart(entry.node, entry.localIdx);
-        range.setEnd(entry.node, entry.localIdx + 1);
-        const rect = range.getBoundingClientRect();
-        if (rect.width || rect.height) {
-          octx.save();
-          octx.fillStyle = 'rgba(80,200,80,0.15)';
-          octx.fillRect(
-            rect.left - paperRect.left,
-            rect.top - paperRect.top,
-            rect.width,
-            rect.height
-          );
-          octx.restore();
-        }
-      } catch(e) {}
-    }
+    // 先頭文字の座標
+    let firstRect = null;
+    try {
+      range.setStart(charMap[start].node, charMap[start].localIdx);
+      range.setEnd(charMap[start].node, charMap[start].localIdx + 1);
+      firstRect = range.getBoundingClientRect();
+    } catch(e) {}
+
+    // 末尾文字の座標
+    const lastIdx = end - 1;
+    let lastRect = null;
+    try {
+      range.setStart(charMap[lastIdx].node, charMap[lastIdx].localIdx);
+      range.setEnd(charMap[lastIdx].node, charMap[lastIdx].localIdx + 1);
+      lastRect = range.getBoundingClientRect();
+    } catch(e) {}
+
+    if (!firstRect || !lastRect) continue;
+    if (!(firstRect.width || firstRect.height) || !(lastRect.width || lastRect.height)) continue;
+
+    // 縦書き: 列は右から左へ。firstRectが右側、lastRectが左側（または同じ列）
+    const right = Math.max(firstRect.right, lastRect.right) - paperRect.left;
+    const left = Math.min(firstRect.left, lastRect.left) - paperRect.left;
+    const colTop = PAD_TOP - 2;
+    const colH = S.rows * fs + 4;
+
+    octx.save();
+    octx.fillStyle = 'rgba(80,200,80,0.13)';
+    octx.fillRect(left - 1, colTop, right - left + 2, colH);
+    octx.restore();
   }
 }
 
@@ -1092,6 +1106,119 @@ scroller.addEventListener('wheel', e => {
   e.preventDefault();
   scroller.scrollLeft -= e.deltaY;
 }, { passive: false });
+
+// ===== CUSTOM SCROLLBAR =====
+const scrollbar = document.getElementById('custom-scrollbar');
+const thumb = document.getElementById('scrollbar-thumb');
+let sbDragging = false;
+let sbDragStartX = 0;
+let sbDragStartScroll = 0;
+
+function updateScrollbar() {
+  const containerW = scroller.clientWidth;
+  const scrollW = scroller.scrollWidth;
+
+  if (scrollW <= containerW) {
+    scrollbar.style.display = 'none';
+    return;
+  }
+  scrollbar.style.display = 'block';
+
+  const trackW = scrollbar.clientWidth;
+  const ratio = containerW / scrollW;
+  const thumbW = Math.max(30, Math.round(trackW * ratio));
+  thumb.style.width = thumbW + 'px';
+
+  // direction:rtl では scrollLeft が 0（右端）〜負値（左へスクロール）
+  const maxScroll = scrollW - containerW;
+  const currentScroll = Math.abs(scroller.scrollLeft);
+  const scrollRatio = maxScroll > 0 ? currentScroll / maxScroll : 0;
+
+  // スクロールバーは左が先頭（右端=1ページ目）、右がスクロール先（左方向）
+  // direction:rtl なので右端が原点 → thumbは右寄りから左へ動く
+  const thumbX = (trackW - thumbW) * (1 - scrollRatio);
+  thumb.style.left = thumbX + 'px';
+}
+
+// スクロール時にthumb位置を更新
+scroller.addEventListener('scroll', updateScrollbar);
+
+// thumb ドラッグ
+thumb.addEventListener('mousedown', e => {
+  e.preventDefault();
+  sbDragging = true;
+  sbDragStartX = e.clientX;
+  sbDragStartScroll = scroller.scrollLeft;
+  thumb.classList.add('dragging');
+});
+
+window.addEventListener('mousemove', e => {
+  if (!sbDragging) return;
+  e.preventDefault();
+  const dx = e.clientX - sbDragStartX;
+  const trackW = scrollbar.clientWidth;
+  const thumbW = thumb.clientWidth;
+  const scrollW = scroller.scrollWidth;
+  const containerW = scroller.clientWidth;
+  const maxScroll = scrollW - containerW;
+  const scrollPerPx = maxScroll / (trackW - thumbW);
+  // ドラッグ方向: 右にドラッグ → scrollLeftを正方向（RTLでは負を増やす）
+  scroller.scrollLeft = sbDragStartScroll + dx * scrollPerPx;
+});
+
+window.addEventListener('mouseup', () => {
+  if (sbDragging) {
+    sbDragging = false;
+    thumb.classList.remove('dragging');
+  }
+});
+
+// タッチ対応
+thumb.addEventListener('touchstart', e => {
+  e.preventDefault();
+  sbDragging = true;
+  sbDragStartX = e.touches[0].clientX;
+  sbDragStartScroll = scroller.scrollLeft;
+  thumb.classList.add('dragging');
+}, { passive: false });
+
+window.addEventListener('touchmove', e => {
+  if (!sbDragging) return;
+  const dx = e.touches[0].clientX - sbDragStartX;
+  const trackW = scrollbar.clientWidth;
+  const thumbW = thumb.clientWidth;
+  const scrollW = scroller.scrollWidth;
+  const containerW = scroller.clientWidth;
+  const maxScroll = scrollW - containerW;
+  const scrollPerPx = maxScroll / (trackW - thumbW);
+  scroller.scrollLeft = sbDragStartScroll + dx * scrollPerPx;
+}, { passive: true });
+
+window.addEventListener('touchend', () => {
+  if (sbDragging) {
+    sbDragging = false;
+    thumb.classList.remove('dragging');
+  }
+});
+
+// トラッククリックでジャンプ
+scrollbar.addEventListener('click', e => {
+  if (e.target === thumb) return;
+  const trackW = scrollbar.clientWidth;
+  const thumbW = thumb.clientWidth;
+  const clickX = e.clientX - scrollbar.getBoundingClientRect().left;
+  const scrollW = scroller.scrollWidth;
+  const containerW = scroller.clientWidth;
+  const maxScroll = scrollW - containerW;
+  // クリック位置からスクロール位置を計算
+  const targetRatio = 1 - (clickX - thumbW / 2) / (trackW - thumbW);
+  const clampedRatio = Math.max(0, Math.min(1, targetRatio));
+  scroller.scrollLeft = -(clampedRatio * maxScroll);
+});
+
+// 初回 & リサイズ時に更新
+new ResizeObserver(updateScrollbar).observe(scroller);
+setTimeout(updateScrollbar, 100);
 
 // ===== TOAST =====
 function showToast(msg) {
