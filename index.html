@@ -220,17 +220,17 @@
   /* カスタムスクロールバー */
   #custom-scrollbar {
     position: absolute; bottom: 0; left: 0; right: 0;
-    height: 10px; background: rgba(0,0,0,0.06);
+    height: 10px; background: var(--washi);
     z-index: 15; cursor: pointer;
   }
   #scrollbar-thumb {
     position: absolute; top: 2px; height: 6px;
     min-width: 30px; border-radius: 3px;
-    background: #c9a84c77;
+    background: var(--gold);
     cursor: grab; transition: background 0.15s;
   }
-  #scrollbar-thumb:hover { background: #c9a84caa; }
-  #scrollbar-thumb:active, #scrollbar-thumb.dragging { background: var(--gold); cursor: grabbing; }
+  #scrollbar-thumb:hover { background: #d4b860; }
+  #scrollbar-thumb:active, #scrollbar-thumb.dragging { background: #e0c870; cursor: grabbing; }
   @keyframes fadeIn { from{opacity:0} to{opacity:1} }
   #paper { animation: fadeIn 0.35s ease; }
 </style>
@@ -345,7 +345,7 @@
     </div>
   </div>
   <div style="text-align:right;margin-top:8px;">
-    <span id="version-label" style="color:#c9a84c;font-size:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.05em;">v.1.1.1</span>
+    <span id="version-label" style="color:#c9a84c;font-size:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.05em;">v.1.1.3</span>
   </div>
 </div>
 
