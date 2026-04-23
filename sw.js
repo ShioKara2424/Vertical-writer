@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tategaki-v1.1.3';
+const CACHE_NAME = 'tategaki-v1.2.1';
 const ASSETS = [
   './',
   './index.html',
