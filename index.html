@@ -84,14 +84,14 @@
   }
 
   #grid-canvas {
-    position: absolute; top: 0; right: 0;
+    position: absolute; top: 0; left: 0;
     pointer-events: none; z-index: 1; display: block;
     background: transparent;
   }
 
-  /* オーバーレイキャンバス: コメントハイライト・改行記号・ぶら下げ描画用 */
+  /* オーバーレイキャンバス: コメントハイライト・改行記号描画用 */
   #overlay-canvas {
-    position: absolute; top: 0; right: 0;
+    position: absolute; top: 0; left: 0;
     pointer-events: none; z-index: 2; display: block;
     background: transparent;
   }
@@ -345,7 +345,7 @@
     </div>
   </div>
   <div style="text-align:right;margin-top:8px;">
-    <span id="version-label" style="color:#c9a84c;font-size:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.05em;">v.1.1.3</span>
+    <span id="version-label" style="color:#c9a84c;font-size:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.05em;">v.1.2.1</span>
   </div>
 </div>
 
@@ -490,7 +490,7 @@ function syncPaperWidth() {
   paper.style.width = Math.max(w, paperW) + 'px';
 }
 
-// ===== CANVAS: ページ区切り =====
+// ===== CANVAS: ページ区切り（viewport限定描画） =====
 let canvasRedrawT = null;
 function scheduleCanvasRedraw() {
   clearTimeout(canvasRedrawT);
@@ -500,61 +500,78 @@ function scheduleCanvasRedraw() {
 function redrawCanvas() {
   syncPaperWidth();
   const { paperH } = computeGrid();
-  const actualW = paper.offsetWidth;
+  const paperW = paper.offsetWidth;
   const actualH = paper.offsetHeight || paperH;
+  const computedLH = parseFloat(getComputedStyle(editor).lineHeight) || computeGrid().colW;
+  const pageMargin = Math.ceil(S.cols * computedLH);
 
-  canvas.width  = actualW;
+  // canvas はviewport + 前後1ページ分
+  const vpW = scroller.clientWidth;
+  const canvasW = vpW + pageMargin * 2;
+
+  canvas.width  = canvasW;
   canvas.height = actualH;
-  canvas.style.width  = actualW + 'px';
+  canvas.style.width  = canvasW + 'px';
   canvas.style.height = actualH + 'px';
 
-  const computedLH = parseFloat(getComputedStyle(editor).lineHeight) || computeGrid().colW;
-  renderPageLines({ colW: computedLH, paperH: actualH, paperW: actualW });
+  const paperRect = paper.getBoundingClientRect();
+  const scrollerRect = scroller.getBoundingClientRect();
+  const vpLeft = scrollerRect.left - paperRect.left;
+  const drawLeft = vpLeft - pageMargin;
+  canvas.style.left = drawLeft + 'px';
+
+  renderPageLines({ colW: computedLH, paperH: actualH, paperW: paperW, drawLeft, canvasW });
 }
 
-function renderPageLines({ colW, paperH, paperW }) {
-  ctx.clearRect(0, 0, paperW, paperH);
+function renderPageLines({ colW, paperH, paperW, drawLeft, canvasW }) {
+  ctx.clearRect(0, 0, canvasW, paperH);
 
   const textRight = paperW - PAD_SIDE;
   const pageTextW = S.cols * colW;
   const textAreaW = textRight - PAD_SIDE;
   const numPages  = Math.ceil(textAreaW / pageTextW);
 
+  const drawRight = drawLeft + canvasW;
+
   for (let p = 1; p < numPages; p++) {
     const x = textRight - p * pageTextW;
     if (x <= PAD_SIDE) break;
+    if (x < drawLeft - 10 || x > drawRight + 10) continue;
 
-    // 破線のページ区切り
+    const cx = x - drawLeft;
+
     ctx.save();
     ctx.strokeStyle = 'rgba(160,120,60,0.5)';
     ctx.lineWidth = 1.2;
     ctx.setLineDash([6, 4]);
     ctx.beginPath();
-    ctx.moveTo(x, PAD_TOP * 0.5);
-    ctx.lineTo(x, paperH - PAD_TOP * 0.5);
+    ctx.moveTo(cx, PAD_TOP * 0.5);
+    ctx.lineTo(cx, paperH - PAD_TOP * 0.5);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
 
-    // ページ番号: 右下（区切り線の少し左）
     ctx.save();
     ctx.fillStyle = 'rgba(120,80,30,0.75)';
     ctx.font = 'bold 13px sans-serif';
     ctx.textAlign = 'right';
-    ctx.fillText(String(p + 1), x - 6, paperH - 5);
+    ctx.fillText(String(p + 1), cx - 6, paperH - 5);
     ctx.restore();
   }
 
-  // 1ページ目のページ番号: 右下（右端PAD_SIDEの少し左）
-  ctx.save();
-  ctx.fillStyle = 'rgba(120,80,30,0.75)';
-  ctx.font = 'bold 13px sans-serif';
-  ctx.textAlign = 'right';
-  ctx.fillText('1', textRight + PAD_SIDE - 6, paperH - 5);
-  ctx.restore();
+  // 1ページ目のページ番号
+  const page1X = textRight + PAD_SIDE - 6;
+  if (page1X >= drawLeft - 10 && page1X <= drawRight + 10) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(120,80,30,0.75)';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('1', page1X - drawLeft, paperH - 5);
+    ctx.restore();
+  }
 }
 
-// ===== OVERLAY CANVAS: コメントHL, 改行記号 =====
+// ===== OVERLAY CANVAS: コメントHL, 改行記号（viewport限定） =====
 let overlayRedrawT = null;
 function scheduleOverlayRedraw() {
   clearTimeout(overlayRedrawT);
@@ -563,31 +580,48 @@ function scheduleOverlayRedraw() {
 
 function redrawOverlay() {
   const { paperH, colW: gridColW } = computeGrid();
-  const actualW = paper.offsetWidth;
+  const paperW = paper.offsetWidth;
   const actualH = paper.offsetHeight || paperH;
+  const computedLH = parseFloat(getComputedStyle(editor).lineHeight) || gridColW;
+  const pageMargin = Math.ceil(S.cols * computedLH);
 
-  overlay.width  = actualW;
+  // overlay もviewport + 前後1ページ分
+  const vpW = scroller.clientWidth;
+  const canvasW = vpW + pageMargin * 2;
+
+  overlay.width  = canvasW;
   overlay.height = actualH;
-  overlay.style.width  = actualW + 'px';
+  overlay.style.width  = canvasW + 'px';
   overlay.style.height = actualH + 'px';
 
-  octx.clearRect(0, 0, actualW, actualH);
+  const paperRect = paper.getBoundingClientRect();
+  const scrollerRect = scroller.getBoundingClientRect();
+  const vpLeft = scrollerRect.left - paperRect.left;
+  const drawLeft = vpLeft - pageMargin;
+  overlay.style.left = drawLeft + 'px';
+
+  octx.clearRect(0, 0, canvasW, actualH);
 
   const text = getCleanText();
   if (!text) return;
 
   const fs = S.fontSize;
-  const computedLH = parseFloat(getComputedStyle(editor).lineHeight) || gridColW;
-  const paperRect = paper.getBoundingClientRect();
 
-  // charMapを一度だけ構築して両関数で共有
+  // 描画範囲を画面座標で渡す（前後1ページ含む）
+  const vpInfo = {
+    paperRect, scrollerRect,
+    vpLeft: drawLeft, vpW: canvasW,
+    screenLeft: scrollerRect.left - pageMargin,
+    screenRight: scrollerRect.right + pageMargin,
+  };
+
   const mapped = (S.showNewline || S.commentHL) ? buildCharMap() : null;
 
-  if (S.showNewline && mapped) {
-    drawNewlineMarks(paperRect, fs, computedLH, mapped);
+  if (S.showNewline) {
+    drawNewlineMarks(paperRect, fs, computedLH, mapped, vpInfo);
   }
   if (S.commentHL && mapped) {
-    drawCommentHighlights(paperRect, fs, computedLH, mapped);
+    drawCommentHighlights(paperRect, fs, computedLH, mapped, vpInfo);
   }
 }
 
@@ -605,15 +639,21 @@ function redrawOverlay() {
  *       最後の暗黙の<br>（divの末尾br）は改行マーク不要な場合もあるので、
  *       「次に兄弟ノードがない末尾br」かつ「親divが最後の子」なら除外する。
  */
-function drawNewlineMarks(paperRect, fs, computedLH, mapped) {
+function drawNewlineMarks(paperRect, fs, computedLH, mapped, vpInfo) {
   const markSize = Math.round(fs * 0.55);
   const range = document.createRange();
+  const { vpLeft, vpW, screenLeft, screenRight } = vpInfo;
+  const vpLeftScreen = screenLeft;
+  const vpRightScreen = screenRight;
 
-  // editor直下の子を順に見て、改行位置を収集
   const positions = [];
 
+  function isInViewport(rect) {
+    // 画面座標でviewport内かチェック
+    return rect.right >= vpLeftScreen - 50 && rect.left <= vpRightScreen + 50;
+  }
+
   function getLastCharRect(node) {
-    // ノード内の最後のテキスト文字の座標を返す
     const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
     let lastTextNode = null;
     let tn;
@@ -621,7 +661,6 @@ function drawNewlineMarks(paperRect, fs, computedLH, mapped) {
       if (tn.textContent.length > 0) lastTextNode = tn;
     }
     if (lastTextNode) {
-      // 最後の非改行文字を探す
       const txt = lastTextNode.textContent;
       for (let i = txt.length - 1; i >= 0; i--) {
         if (txt[i] !== '\n') {
@@ -638,8 +677,6 @@ function drawNewlineMarks(paperRect, fs, computedLH, mapped) {
   }
 
   function getBrRect(br) {
-    // br要素自体の座標を取得（空行用）
-    // rangeでbrを囲む
     try {
       range.selectNode(br);
       const r = range.getBoundingClientRect();
@@ -653,67 +690,60 @@ function drawNewlineMarks(paperRect, fs, computedLH, mapped) {
   for (let i = 0; i < children.length; i++) {
     const child = children[i];
 
-    if (child.nodeType === Node.ELEMENT_NODE && child.tagName === 'BR') {
-      // editor直下の<br>: 改行位置
-      // ただし最後の子のbrは末尾なので除外
-      if (i === children.length - 1) continue;
+    // viewport外のノードをスキップ（粗いチェック）
+    if (child.nodeType === Node.ELEMENT_NODE) {
+      const cr = child.getBoundingClientRect();
+      if (cr.right < vpLeftScreen - 100 || cr.left > vpRightScreen + 100) continue;
+    }
 
-      // brの前にテキストがあればその文字の下に描画
+    if (child.nodeType === Node.ELEMENT_NODE && child.tagName === 'BR') {
+      if (i === children.length - 1) continue;
       const prev = child.previousSibling;
       if (prev && prev.nodeType === Node.TEXT_NODE && prev.textContent.replace(/\n/g, '').length > 0) {
         const r = getLastCharRect(prev);
-        if (r) {
+        if (r && isInViewport(r)) {
           positions.push({ x: r.left + r.width / 2, y: r.bottom });
           continue;
         }
       }
-      // テキストがない場合（空行）: br自体の位置
       const brR = getBrRect(child);
-      if (brR) {
+      if (brR && isInViewport(brR)) {
         positions.push({ x: brR.left + brR.width / 2, y: brR.top });
       }
 
     } else if (child.nodeType === Node.ELEMENT_NODE && (child.tagName === 'DIV' || child.tagName === 'P')) {
-      // <div> の末尾 = 改行位置（最後のdivは除外）
       if (i === children.length - 1) continue;
-
-      // div内にテキストがあるか？
       const innerText = child.textContent.replace(/\n/g, '');
       if (innerText.length > 0) {
-        // 最後の文字の下に描画
         const r = getLastCharRect(child);
-        if (r) {
+        if (r && isInViewport(r)) {
           positions.push({ x: r.left + r.width / 2, y: r.bottom });
           continue;
-        }
+        } else if (r) continue; // 存在するがviewport外
       }
-      // 空div（空行）: 中の<br>の位置を使う
       const innerBr = child.querySelector('br');
       if (innerBr) {
         const brR = getBrRect(innerBr);
-        if (brR) {
+        if (brR && isInViewport(brR)) {
           positions.push({ x: brR.left + brR.width / 2, y: brR.top });
           continue;
         }
       }
-      // それでもダメならdiv自体の位置
       const divR = child.getBoundingClientRect();
-      if (divR.width || divR.height) {
+      if ((divR.width || divR.height) && isInViewport(divR)) {
         positions.push({ x: divR.left + divR.width / 2, y: divR.top });
       }
 
     } else if (child.nodeType === Node.TEXT_NODE) {
-      // テキストノード内の \n
       const txt = child.textContent;
       for (let ci = 0; ci < txt.length; ci++) {
         if (txt[ci] === '\n') {
           if (ci > 0) {
-            // 直前の文字の下に描画
             try {
               range.setStart(child, ci - 1);
               range.setEnd(child, ci);
               const r = range.getBoundingClientRect();
-              if (r.width || r.height) {
+              if ((r.width || r.height) && isInViewport(r)) {
                 positions.push({ x: r.left + r.width / 2, y: r.bottom });
               }
             } catch(e) {}
@@ -723,7 +753,6 @@ function drawNewlineMarks(paperRect, fs, computedLH, mapped) {
     }
   }
 
-  // 描画
   for (const pos of positions) {
     octx.save();
     octx.fillStyle = 'rgba(160,120,60,0.35)';
@@ -731,7 +760,7 @@ function drawNewlineMarks(paperRect, fs, computedLH, mapped) {
     octx.textAlign = 'center';
     octx.textBaseline = 'top';
     octx.fillText('↵',
-      pos.x - paperRect.left,
+      pos.x - paperRect.left - vpLeft,
       pos.y - paperRect.top + 1);
     octx.restore();
   }
@@ -742,9 +771,13 @@ function drawNewlineMarks(paperRect, fs, computedLH, mapped) {
  * 行頭が // の行について、先頭文字と末尾文字の座標だけ取得し、
  * 列単位の矩形で塗る。Range API呼び出しは行あたり2回のみ。
  */
-function drawCommentHighlights(paperRect, fs, computedLH, mapped) {
+function drawCommentHighlights(paperRect, fs, computedLH, mapped, vpInfo) {
   const { charMap, lineStarts } = mapped;
   if (charMap.length === 0) return;
+
+  const { vpLeft, vpW, screenLeft, screenRight } = vpInfo;
+  const vpLeftScreen = screenLeft;
+  const vpRightScreen = screenRight;
 
   const range = document.createRange();
 
@@ -758,7 +791,6 @@ function drawCommentHighlights(paperRect, fs, computedLH, mapped) {
     const ch1 = charMap[start + 1].node.textContent[charMap[start + 1].localIdx];
     if (ch0 !== '/' || ch1 !== '/') continue;
 
-    // 先頭文字の座標
     let firstRect = null;
     try {
       range.setStart(charMap[start].node, charMap[start].localIdx);
@@ -766,7 +798,6 @@ function drawCommentHighlights(paperRect, fs, computedLH, mapped) {
       firstRect = range.getBoundingClientRect();
     } catch(e) {}
 
-    // 末尾文字の座標
     const lastIdx = end - 1;
     let lastRect = null;
     try {
@@ -778,9 +809,14 @@ function drawCommentHighlights(paperRect, fs, computedLH, mapped) {
     if (!firstRect || !lastRect) continue;
     if (!(firstRect.width || firstRect.height) || !(lastRect.width || lastRect.height)) continue;
 
-    // 縦書き: 列は右から左へ。firstRectが右側、lastRectが左側（または同じ列）
-    const right = Math.max(firstRect.right, lastRect.right) - paperRect.left;
-    const left = Math.min(firstRect.left, lastRect.left) - paperRect.left;
+    // viewport外ならスキップ
+    const lineLeft = Math.min(firstRect.left, lastRect.left);
+    const lineRight = Math.max(firstRect.right, lastRect.right);
+    if (lineRight < vpLeftScreen - 50 || lineLeft > vpRightScreen + 50) continue;
+
+    // canvas座標に変換（vpLeftオフセット）
+    const right = Math.max(firstRect.right, lastRect.right) - paperRect.left - vpLeft;
+    const left = Math.min(firstRect.left, lastRect.left) - paperRect.left - vpLeft;
     const colTop = PAD_TOP - 2;
     const colH = S.rows * fs + 4;
 
@@ -1140,8 +1176,12 @@ function updateScrollbar() {
   thumb.style.left = thumbX + 'px';
 }
 
-// スクロール時にthumb位置を更新
-scroller.addEventListener('scroll', updateScrollbar);
+// スクロール時にthumb位置 + canvas/overlay を更新
+scroller.addEventListener('scroll', () => {
+  updateScrollbar();
+  scheduleCanvasRedraw();
+  scheduleOverlayRedraw();
+});
 
 // thumb ドラッグ
 thumb.addEventListener('mousedown', e => {
